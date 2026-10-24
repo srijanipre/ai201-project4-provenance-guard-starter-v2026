@@ -1,0 +1,89 @@
+{
+  "_readme": "Calibration samples for Provenance Guard. Human passages are public-domain books (pre-2020) with their source given. AI-side passages were written by Claude for this set, so their origin is known by construction, not verified. Borderline is human-written but dense, older prose.",
+  "human_plain": [
+    {
+      "text": "You don’t know about me without you have read a book by the name of The Adventures of Tom Sawyer; but that ain’t no matter. That book was made by Mr. Mark Twain, and he told the truth, mainly. There was things which he stretched, but mainly he told the truth. That is nothing. I never seen anybody but lied one time or another, without it was Aunt Polly, or the widow, or maybe Mary. Aunt Polly—Tom’s Aunt Polly, she is—and Mary, and the Widow Douglas is all told about in that book, which is mostly a true book, with some stretchers, as I said before.",
+      "source": "Mark Twain, Adventures of Huckleberry Finn (1884), ch. 1, via Standard Ebooks"
+    },
+    {
+      "text": "After supper she got out her book and learned me about Moses and the Bulrushers, and I was in a sweat to find out all about him; but by and by she let it out that Moses had been dead a considerable long time; so then I didn’t care no more about him, because I don’t take no stock in dead people.",
+      "source": "Mark Twain, Adventures of Huckleberry Finn (1884), ch. 1, via Standard Ebooks"
+    },
+    {
+      "text": "Pretty soon I wanted to smoke, and asked the widow to let me. But she wouldn’t. She said it was a mean practice and wasn’t clean, and I must try to not do it any more. That is just the way with some people. They get down on a thing when they don’t know nothing about it. Here she was a-bothering about Moses, which was no kin to her, and no use to anybody, being gone, you see, yet finding a power of fault with me for doing a thing that had some good in it. And she took snuff, too; of course that was all right, because she done it herself.",
+      "source": "Mark Twain, Adventures of Huckleberry Finn (1884), ch. 1, via Standard Ebooks"
+    },
+    {
+      "text": "And now it was that, being on some occasion made ashamed of my ignorance in figures, which I had twice failed in learning when at school, I took Cocker’s book of Arithmetic, and went through the whole by myself with great ease. I also read Seller’s and Shermy’s books of Navigation, and became acquainted with the little geometry they contain; but never proceeded far in that science. And I read about this time Locke On Human Understanding,19 and the Art of Thinking, by Messrs. du Port Royal.20",
+      "source": "Benjamin Franklin, Autobiography (written 1771-1790), via Standard Ebooks"
+    },
+    {
+      "text": "In the evening I found myself very feverish, and went in to bed; but, having read somewhere that cold water drank plentifully was good for a fever, I followed the prescription, sweat plentifully most of the night, my fever left me, and in the morning, crossing the ferry, I proceeded on my journey on foot, having fifty miles to Burlington, where I was told I should find boats that would carry me the rest of the way to Philadelphia.",
+      "source": "Benjamin Franklin, Autobiography (written 1771-1790), via Standard Ebooks"
+    }
+  ],
+  "human_formal": [
+    {
+      "text": "The subject of this Essay is not the so-called Liberty of the Will, so unfortunately opposed to the misnamed doctrine of Philosophical Necessity; but Civil, or Social Liberty: the nature and limits of the power which can be legitimately exercised by society over the individual. A question seldom stated, and hardly ever discussed, in general terms, but which profoundly influences the practical controversies of the age by its latent presence, and is likely soon to make itself recognised as the vital question of the future. It is so far from being new, that in a certain sense, it has divided mankind, almost from the remotest ages; but in the stage of progress into which the more civilised portions of the species have now entered, it presents itself under new conditions, and requires a different and more fundamental treatment.",
+      "source": "J. S. Mill, On Liberty (1859), via Standard Ebooks"
+    },
+    {
+      "text": "No society in which these liberties are not, on the whole, respected, is free, whatever may be its form of government; and none is completely free in which they do not exist absolute and unqualified. The only freedom which deserves the name, is that of pursuing our own good in our own way, so long as we do not attempt to deprive others of theirs, or impede their efforts to obtain it. Each is the proper guardian of his own health, whether bodily, or mental and spiritual. Mankind are greater gainers by suffering each other to live as seems good to themselves, than by compelling each to live as seems good to the rest.",
+      "source": "J. S. Mill, On Liberty (1859), via Standard Ebooks"
+    },
+    {
+      "text": "First: the opinion which it is attempted to suppress by authority may possibly be true. Those who desire to suppress it, of course deny its truth; but they are not infallible. They have no authority to decide the question for all mankind, and exclude every other person from the means of judging. To refuse a hearing to an opinion, because they are sure that it is false, is to assume that their certainty is the same thing as absolute certainty. All silencing of discussion is an assumption of infallibility. Its condemnation may be allowed to rest on this common argument, not the worse for being common.",
+      "source": "J. S. Mill, On Liberty (1859), via Standard Ebooks"
+    },
+    {
+      "text": "Strange it is, that men should admit the validity of the arguments for free discussion, but object to their being “pushed to an extreme;” not seeing that unless the reasons are good for an extreme case, they are not good for any case. Strange that they should imagine that they are not assuming infallibility, when they acknowledge that there should be free discussion on all subjects which can possibly be doubtful, but think that some particular principle or doctrine should be forbidden to be questioned because it is so certain, that is, because they are certain that it is certain. To call any proposition certain, while there is anyone who would deny its certainty if permitted, but who is not permitted, is to assume that we ourselves, and those who agree with us, are the judges of certainty, and judges without hearing the other side.",
+      "source": "J. S. Mill, On Liberty (1859), via Standard Ebooks"
+    },
+    {
+      "text": "Most men, even in this comparatively free country, through mere ignorance and mistake, are so occupied with the factitious cares and superfluously coarse labors of life that its finer fruits cannot be plucked by them. Their fingers, from excessive toil, are too clumsy and tremble too much for that. Actually, the laboring man has not leisure for a true integrity day by day; he cannot afford to sustain the manliest relations to men; his labor would be depreciated in the market. He has no time to be anything but a machine. How can he remember well his ignorance—which his growth requires—who has so often to use his knowledge? We should feed and clothe him gratuitously sometimes, and recruit him with our cordials, before we judge of him. The finest qualities of our nature, like the bloom on fruits, can be preserved only by the most delicate handling. Yet we do not treat ourselves nor one another thus tenderly.",
+      "source": "Henry David Thoreau, Walden (1854), via Standard Ebooks"
+    }
+  ],
+  "borderline": [
+    {
+      "text": "But men labor under a mistake. The better part of the man is soon plowed into the soil for compost. By a seeming fate, commonly called necessity, they are employed, as it says in an old book, laying up treasures which moth and rust will corrupt and thieves break through and steal. It is a fool’s life, as they will find when they get to the end of it, if not before. It is said that Deucalion and Pyrrha created men by throwing stones over their heads behind them:—",
+      "source": "Henry David Thoreau, Walden (1854), via Standard Ebooks"
+    }
+  ],
+  "ai_clear": [
+    {
+      "text": "Remote work has changed how many teams operate, and the effects are both positive and complex. On one hand, employees often report greater flexibility and fewer commuting costs. On the other hand, organizations must invest deliberately in communication, documentation, and team cohesion. It is important to note that the outcome depends largely on management practices rather than location alone. Companies that establish clear expectations tend to see more consistent results.",
+      "source": "written by Claude (the assistant) for this calibration set; origin known by construction, not verified from outside"
+    },
+    {
+      "text": "Photosynthesis is the process by which plants, algae, and some bacteria convert light energy into chemical energy. It takes place primarily in the chloroplasts, where chlorophyll absorbs light, mainly in the blue and red wavelengths. The captured energy is then used to transform carbon dioxide and water into glucose and oxygen. This process is fundamental to life on Earth, as it forms the base of most food chains and contributes significantly to the atmosphere's oxygen content.",
+      "source": "written by Claude (the assistant) for this calibration set; origin known by construction, not verified from outside"
+    },
+    {
+      "text": "When designing a budget, individuals should begin by clearly identifying their income and essential expenses. Next, it is helpful to categorize discretionary spending and set realistic limits for each category. Tracking expenses over a period of several months can reveal patterns that may not be immediately obvious. Ultimately, a successful budget is one that is sustainable, flexible, and aligned with long-term financial goals.",
+      "source": "written by Claude (the assistant) for this calibration set; origin known by construction, not verified from outside"
+    },
+    {
+      "text": "Effective customer feedback is a valuable resource for any product team. It provides insight into user needs, highlights areas of friction, and helps prioritize improvements. To make the most of feedback, teams should establish consistent collection methods, analyze responses systematically, and communicate changes back to customers. By closing this loop, organizations build trust and encourage continued engagement with their products.",
+      "source": "written by Claude (the assistant) for this calibration set; origin known by construction, not verified from outside"
+    },
+    {
+      "text": "The history of the printing press is a story of gradual transformation rather than sudden invention. Although Johannes Gutenberg is often credited with developing movable type in Europe around 1440, similar technologies existed earlier in East Asia. Over the following decades, printing spread rapidly across the continent, reshaping education, religion, and commerce. This widespread dissemination of information is widely regarded as one of the key catalysts of the early modern period.",
+      "source": "written by Claude (the assistant) for this calibration set; origin known by construction, not verified from outside"
+    }
+  ],
+  "ai_light_edit": [
+    {
+      "text": "Remote work has changed how a lot of teams operate, and honestly the effects are mixed. On one hand, people usually like the flexibility and skipping the commute. On the other hand, managers have to put real effort into communication, docs, and keeping the team together. I think the outcome depends more on management than on location. Teams that set clear expectations seem to get more consistent results.",
+      "source": "Edited by hand from one of the ai_clear passages; written by Claude (the assistant) for this calibration set; origin known by construction, not verified from outside"
+    },
+    {
+      "text": "When you make a budget, start by writing down what you earn and what you have to pay each month. Then sort the rest of your spending into categories and give each one a limit that's actually realistic. Tracking things for a few months usually shows patterns you didn't notice (mine was takeout). A good budget is one you can stick with, so keep it flexible and tie it to what you want long term.",
+      "source": "Edited by hand from one of the ai_clear passages; written by Claude (the assistant) for this calibration set; origin known by construction, not verified from outside"
+    },
+    {
+      "text": "The history of the printing press is more a story of slow change than of one sudden invention. Johannes Gutenberg gets most of the credit for movable type in Europe around 1440, but similar technology was already around in East Asia. Over the next few decades printing spread fast across the continent and changed education, religion, and trade. Lots of historians treat that spread as one of the main reasons the early modern period looks the way it does.",
+      "source": "Edited by hand from one of the ai_clear passages; written by Claude (the assistant) for this calibration set; origin known by construction, not verified from outside"
+    }
+  ]
+}

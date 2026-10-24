@@ -56,41 +56,42 @@ MAX_TEXT_CHARS = 10_000
 
 
 # ─── Scoring (Milestone 4) ───────────────────────────────────────────────────
-# How much each signal counts toward the combined score.
+# How much each signal counts toward the combined score. The combined score is
+# the weighted average of the two signals, divided by the weight total.
 #
-# ⚠️ These are placeholders. Milestone 4 asks you to write your combining rule
-# down BEFORE you code it, and to put the numbers in your README. Whatever you
-# decide, it goes here.
+# Why 0.6 / 0.4: on the calibration set (samples/calibration.json) the model
+# signal separated clearly-AI text from human text by roughly 0.20 on average,
+# and the style signal by roughly 0.07. The style signal's type-token component
+# also ran backwards on that set, so it gets less say. This was decided after
+# looking at those numbers, which is worth knowing when you read it.
 
-WEIGHT_MODEL_SIGNAL = 0.5
-WEIGHT_STYLE_SIGNAL = 0.5
+WEIGHT_MODEL_SIGNAL = 0.6
+WEIGHT_STYLE_SIGNAL = 0.4
+
+# Reference points for turning the three style measures into 0–1 components
+# (see stylometry.style_signal). These set where "fully human-like" and "fully
+# AI-like" sit on each raw measure. They're scale choices, not fitted values.
+STYLE_SPREAD_HUMAN_CV = 1.0     # sentence-length CV at or above this reads fully human
+STYLE_TTR_AI = 0.5              # moving-average TTR at or below this reads fully AI
+STYLE_TTR_HUMAN = 0.9           # moving-average TTR at or above this reads fully human
+STYLE_PUNCT_HUMAN_RATE = 0.12   # clause punctuation per word at or above this reads fully human
 
 
 # ─── Thresholds (Milestone 5) ────────────────────────────────────────────────
 # Where one label becomes another. Scores run 0.0 (confidently human) to 1.0
-# (confidently AI).
+# (confidently AI). Ranges are half-open, so every score lands in exactly one:
 #
-#   score < HUMAN_THRESHOLD          -> high-confidence human
-#   between the two                  -> unsure
-#   score > AI_THRESHOLD             -> high-confidence AI
+#   score < HUMAN_THRESHOLD                       -> high-confidence human
+#   HUMAN_THRESHOLD <= score < AI_THRESHOLD       -> unsure
+#   score >= AI_THRESHOLD                         -> high-confidence AI
 #
-# ⚠️ This is where your false-positive decision from Milestone 1 actually gets
-# made. Widening the unsure band means fewer wrong accusations and more AI text
-# getting through. There is no setting that avoids the trade — only settings
-# that decide who pays for it.
+# The AI threshold is set high on purpose. Formal human writing lands around
+# 0.5 on the calibration set, so a 0.70 bar means a human has to look clearly
+# machine-like on both signals before the label is "high-confidence AI". The
+# cost is that most AI text ends up in the unsure band too.
 
 HUMAN_THRESHOLD = 0.35
-AI_THRESHOLD = 0.65
-
-# ⚠️ One thing that catches people out in Milestone 5. A weighted average can
-# only land between its two inputs — so while `style_signal` is still the stub
-# returning 0.5, the combined score can never leave 0.25–0.75 no matter what
-# the model signal says, and the human label needs a model score below 0.20 to
-# be reachable at all.
-#
-# If a label you can't reach is the problem, the fix is upstream of the
-# thresholds: a style signal that actually varies. `scoring.label_ranges()`
-# prints the bands; the reachable range is a different question.
+AI_THRESHOLD = 0.70
 
 
 # ─── Rate limiting (UNIT 8) ──────────────────────────────────────────────────
