@@ -47,6 +47,14 @@ DETECTOR_MODEL = os.getenv("AI201_DETECTOR_MODEL", "gpt2")
 DETECTOR_MAX_TOKENS = 400
 
 
+# ─── Submissions ─────────────────────────────────────────────────────────────
+# Longer than this is refused with a 413. About 1,500 words, which is well past
+# what a single essay submission needs and keeps the stylometry pass cheap.
+# Note the detector only reads the first DETECTOR_MAX_TOKENS of it.
+
+MAX_TEXT_CHARS = 10_000
+
+
 # ─── Scoring (Milestone 4) ───────────────────────────────────────────────────
 # How much each signal counts toward the combined score.
 #
