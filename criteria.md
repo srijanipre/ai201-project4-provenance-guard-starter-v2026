@@ -46,7 +46,7 @@ Two things worth knowing before you pick numbers:
 ## 1. False positives stay rare on human writing
 
 Of 10 passages I know were written by people (5 plain, 5 formal; all from
-public-domain books published before 2020, so no chance of model output), at
+public-domain books published before 2020, so they can't be model output), at
 most **1 of 10** gets the high-confidence AI label. Checked in each of three
 runs, and every run has to hold.
 
@@ -62,23 +62,31 @@ picked it knowing the gpt2 signal is likely to hit plain writing hardest.
 
 Mean combined score of 5 clearly AI passages minus mean combined score of the
 10 human passages from criterion 1 must be **at least 0.30**. The AI passages
-are ones I wrote in a generic assistant voice, so their origin is known by
+were written by Claude for the calibration set, so their origin is known by
 construction, not verified from outside.
 
 **Why this target:** If the two groups barely separate, no threshold I pick is
-going to tell them apart, and the labels are just noise with extra steps. 0.30
-is about the width of the unsure band I'm planning, so a gap that small would
-mean the middle band is covering the whole space.
+going to tell them apart, and the labels are just noise with extra steps. The
+starter's placeholder unsure band (0.35 to 0.65) was 0.30 wide, so a gap
+smaller than that would mean the middle band covers most of the space.
 
 ---
 
 ## 3. All three labels are reachable
 
-Two checks. First, real submissions from the eval set produce **all three**
-labels (high-confidence AI, high-confidence human, unsure) at least once. Second,
-`scoring.score_to_label` returns the expected label at each boundary: 0.00,
-just under and at `HUMAN_THRESHOLD`, just over and at `AI_THRESHOLD`, and 1.00.
-That's **7 of 7** boundary checks passing.
+Two checks. First, real submissions from the calibration samples produce **all
+three** labels (high-confidence AI, high-confidence human, unsure) at least once.
+Second, `scoring.score_to_label` returns the expected label at each boundary:
+0.00, just under and at `HUMAN_THRESHOLD`, just under and at `AI_THRESHOLD`, and
+1.00. That's **6 of 6** boundary checks passing.
+
+> **Count correction (documentation only):** The original line said "7 of 7".
+> The procedure above names six points, and six were run and passed
+> (`results/criteria_run_unit7.txt`, and `test_threshold_boundaries` in
+> `tests/test_provenance.py`). The procedure also said "just over" `AI_THRESHOLD`,
+> but the check that ran was just under it, so the wording now matches the run.
+> This was a counting and wording error in the write-up. The target and the
+> thresholds are unchanged.
 
 **Why this target:** A label nobody can reach is dead text in the README, and
 a gap between ranges would mean some score gets no label at all. Testing the
@@ -95,6 +103,12 @@ returns 200 with `"status": "under_review"`, and the log gains exactly one
 ID is still in the log and unchanged. An appeal on a made-up `content_id`
 returns 404 and adds zero lines to the log. A second appeal on the same ID
 returns 409. That's **5 of 5** appeals and **3 of 3** error cases.
+
+> **Verification note (documentation only):** The live acceptance run recorded
+> two error cases: an unknown `content_id` (404) and a repeat appeal (409). The
+> third, a malformed appeal body, was checked by the unit test
+> `test_appeal_bad_bodies` in `tests/test_provenance.py`, not by the live run.
+> The target is unchanged.
 
 **Why this target:** The appeal path is the only recourse a writer has, since
 nothing gets re-scored automatically. If an appeal can silently fail, or

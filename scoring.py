@@ -1,7 +1,6 @@
 """
 Turning two numbers into one, and one number into something a person can read.
 
-
 Two functions live here: the combining rule and the label mapping.
 
 `combine_signals` is where your false-positive decision from Milestone 1

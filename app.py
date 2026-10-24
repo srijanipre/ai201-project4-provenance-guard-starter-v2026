@@ -167,8 +167,8 @@ def submit():
         {"text": "...", "creator_id": "..."}
 
     Returns JSON with content_id, guess, confidence, label, model_score and
-    style_score. Milestone 3 only has the model signal, so for now the guess is
-    just the model score split at 0.5, and the label is left empty.
+    style_score. The guess is "ai", "human" or "unsure" (see
+    scoring.score_to_label), and confidence is the combined score.
     """
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict):

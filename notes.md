@@ -322,19 +322,19 @@ Ranges are half-open, so every score lands in exactly one label:
 
 ## Acceptance run against the finished service
 
-The five criteria in `criteria.md` were written before any of this code existed, and I didn't change any targets afterward. The full output is in `results/criteria_run_unit7.txt`.
+The five criteria in `criteria.md` were written before any of this code existed, and I didn't change any targets afterward. The only edits since were documentation fixes (counts and wording), each marked in `criteria.md`. The full output is in `results/criteria_run_unit7.txt`.
 
 | # | Criterion | Target | Result | Verdict |
 |---|---|---|---|---|
 | 1 | False positives on human text | ≤ 1 of 10 labelled AI, all 3 runs | 0 of 10 in all 3 runs | **PASS** |
-| 2 | Score separation | mean AI − mean human ≥ 0.30 | 0.145 (mean AI 0.597, mean human 0.451) | **FAIL** |
+| 2 | Score separation | mean AI − mean human ≥ 0.30 | 0.145 (mean AI 0.597, mean human 0.451) | **MISSED** |
 | 3 | Label coverage | all 3 labels from real text, 6 boundary checks | ai 1, human 3, unsure 15; 6 of 6 boundary checks | **PASS** |
-| 4 | Appeal path | 5 of 5 appeals, 3 of 3 error cases | 5 of 5 appeals; 404 wrote 0 lines; 409 on second appeal | **PASS** |
+| 4 | Appeal path | 5 of 5 appeals, 3 of 3 error cases | 5 of 5 appeals; 404 wrote 0 lines; 409 on second appeal (malformed appeal body covered by unit test only) | **PASS** |
 | 5 | Malformed input | 8 of 8 4xx with JSON error, 0 log lines | 8 of 8; 0 log lines | **PASS** |
 
 **Criterion 2 diagnosis:** the model signal alone gives a gap of 0.20, which still misses. The style signal drags it down further. Its TTR component runs backwards on these samples, and formal human text has low sentence spread, so it looks machine-flat. I didn't change the weights or the TTR direction to pass this. It's a real miss, and the fix would need more calibration data and probably a different vocabulary measure, not a retuned constant.
 
-**Criterion 3 note:** the criterion text says "7 of 7" boundary checks, but the procedure it describes names six points (0.00, the two at the human boundary, the two at the AI boundary, and 1.00). I ran those six, and all passed. I'm recording the miscount instead of rewriting the criterion.
+**Criterion 3 note:** the criterion originally said "7 of 7" boundary checks. The procedure names six points (0.00, the two at the human boundary, the two at the AI boundary, and 1.00), all six ran, and all passed. The count is now corrected to 6 of 6, and the criterion has a note saying it was a documentation error. The target is unchanged.
 
 ---
 

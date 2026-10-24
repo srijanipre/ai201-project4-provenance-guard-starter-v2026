@@ -4,9 +4,7 @@ Signal two: the style signal.
 Signal one reads the text for meaning. This one measures it *as text* — the
 shape of it, without understanding a word.
 
-Three measures are stubbed below because the brief names those three. They are
-stubs, not implementations: what they compute is yours, and so is how you
-combine them.
+The three measures are below, and style_signal combines them into one score.
 
     sentence_length_spread   do sentences vary in length, or march in step?
     type_token_ratio         how much of the vocabulary repeats?
@@ -17,15 +15,14 @@ toward even, mid-length sentences and a narrower band of vocabulary, because
 that's what "most likely next word" produces on average. Human writing is
 lumpier — a three-word sentence next to a forty-word one.
 
-⚠️ **The blind spot, which you have to name in Milestone 1.**
+⚠️ **The blind spot.**
 
 This signal cannot read. It has no idea what the text says. Anything that
 changes the shape without changing the substance moves it — adding typos,
 breaking up sentences, pasting in a quotation. That is a very cheap thing for
 someone to do on purpose, and unit 8's attack set will do it to you.
 
-Build each function on its own and call it from a terminal before you wire
-anything together:
+Run it from a terminal to see each measure on one piece of text:
 
     python stylometry.py "some text to look at"
 """
