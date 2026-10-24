@@ -18,8 +18,8 @@ doesn't, it's the service itself.
 Routes:
 
     POST /ping        the worked example. Already works. Don't edit it
-    POST /submit      ← YOU BUILD THIS (Milestone 3, 4, 5)
-    POST /appeal      ← YOU BUILD THIS (Milestone 5)
+    POST /submit      score a piece of text and label it
+    POST /appeal      a writer challenges a label
     GET  /log         the audit log. Already works
     GET  /health      is the service up, and is the model loaded
 """
@@ -31,6 +31,8 @@ from flask import Flask, jsonify, request
 import audit
 import config
 import detector
+import scoring
+import stylometry
 
 app = Flask(__name__)
 
@@ -149,7 +151,7 @@ def health():
     })
 
 
-# ── YOU BUILD THIS ────────────────────────────────────────────────────────────
+# ── Submission and appeal ─────────────────────────────────────────────────────
 
 def _json_error(status: int, error: str, message: str):
     return jsonify({"error": error, "message": message}), status
@@ -164,8 +166,9 @@ def submit():
     Expects JSON:
         {"text": "...", "creator_id": "..."}
 
-    Milestone 3: only the model signal is in. Guess is the model score split
-    at 0.5, and the label is left empty until Milestone 5.
+    Returns JSON with content_id, guess, confidence, label, model_score and
+    style_score. Milestone 3 only has the model signal, so for now the guess is
+    just the model score split at 0.5, and the label is left empty.
     """
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict):
@@ -199,22 +202,28 @@ def submit():
     except ValueError as exc:
         return _json_error(422, "text_too_short", str(exc))
 
+    style_score = stylometry.style_signal(text)
+    combined = scoring.combine_signals(model_score, style_score)
+    guess, label = scoring.score_to_label(combined)
+
     content_id = str(uuid.uuid4())
-    guess = "ai" if model_score >= 0.5 else "human"
     audit.log_decision(
         content_id=content_id,
         creator_id=creator_id,
         guess=guess,
         model_score=model_score,
+        style_score=style_score,
+        combined_score=combined,
+        label=label,
         status="decided",
     )
     return jsonify({
         "content_id": content_id,
         "guess": guess,
-        "confidence": model_score,
-        "label": None,
+        "confidence": combined,
+        "label": label,
         "model_score": model_score,
-        "style_score": None,
+        "style_score": style_score,
         "status": "decided",
     })
 
@@ -222,31 +231,57 @@ def submit():
 @app.post("/appeal")
 def appeal():
     """
-    A writer says you got it wrong. ← TODO — Milestone 5
+    A writer says the label is wrong. Records the appeal and moves the item to
+    `under_review`. Nothing is re-scored automatically.
 
     Expects JSON:
         {"content_id": "...", "reasoning": "..."}
 
-    Should:
-      1. Check the content_id actually exists — `audit.entries_for(id)` tells
-         you. A typo here fails silently and looks like a broken endpoint,
-         which is the single most common way this milestone eats an hour.
-      2. Record the appeal with `audit.log_appeal(...)`, which moves the item
-         to `under_review`.
-      3. Confirm to the writer. No automatic re-checking needed.
-
-    This is the smallest endpoint in the project and the one that matters most
-    to the person on the other end. It's the only thing standing between a
-    wrong accusation and nothing at all.
+    The original decision stays in the log; the appeal is appended after it.
     """
-    payload = request.get_json(silent=True) or {}
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return _json_error(400, "invalid_body", "Send a JSON object with 'content_id' and 'reasoning'.")
 
-    # TODO: delete this and build the route.
+    if "content_id" not in payload:
+        return _json_error(400, "missing_field", "'content_id' is required.")
+    content_id = payload["content_id"]
+    if not isinstance(content_id, str):
+        return _json_error(400, "invalid_type", "'content_id' must be a string.")
+    if not content_id.strip():
+        return _json_error(400, "empty_content_id", "'content_id' is empty.")
+
+    if "reasoning" not in payload:
+        return _json_error(400, "missing_field", "'reasoning' is required.")
+    reasoning = payload["reasoning"]
+    if not isinstance(reasoning, str):
+        return _json_error(400, "invalid_type", "'reasoning' must be a string.")
+    if not reasoning.strip():
+        return _json_error(400, "empty_reasoning", "'reasoning' is empty.")
+    if len(reasoning) > 2000:
+        return _json_error(413, "reasoning_too_long", "'reasoning' is over 2000 characters.")
+
+    history = audit.entries_for(content_id)
+    decisions = [e for e in history if e.get("event") is None]
+    if not decisions:
+        return _json_error(404, "content_not_found", f"No submission with content_id '{content_id}'.")
+
+    if history[-1].get("status") == "under_review":
+        return _json_error(409, "already_under_review", "This submission already has an appeal on file.")
+
+    original = decisions[0]
+    audit.log_appeal(
+        content_id=content_id,
+        creator_id=original["creator_id"],
+        reasoning=reasoning.strip(),
+    )
     return jsonify({
-        "error": "not_implemented",
-        "message": "POST /appeal isn't built yet — see the TODO in app.py.",
-        "you_sent": payload,
-    }), 501
+        "content_id": content_id,
+        "status": "under_review",
+        "original_guess": original["guess"],
+        "original_label": original["label"],
+        "message": "Your appeal is recorded and this submission is under review. Nothing has been re-scored automatically.",
+    })
 
 
 # ── Already works ─────────────────────────────────────────────────────────────

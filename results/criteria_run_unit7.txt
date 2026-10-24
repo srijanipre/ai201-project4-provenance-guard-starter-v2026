@@ -1,0 +1,52 @@
+== Criterion 1: human passages labelled high-confidence AI (target <= 1 of 10, all 3 runs)
+run 1: false positives = 0/10  guesses = ['human', 'unsure', 'unsure', 'human', 'unsure', 'unsure', 'unsure', 'unsure', 'unsure', 'unsure']
+   human  words=106 model=0.4097 style=0.2386 combined=0.3413 guess=human
+   human  words= 62 model=0.4691 style=0.4386 combined=0.4569 guess=unsure
+   human  words=112 model=0.5117 style=0.2568 combined=0.4097 guess=unsure
+   human  words= 87 model=0.2541 style=0.2618 combined=0.2572 guess=human
+   human  words= 79 model=0.5656 style=0.2661 combined=0.4458 guess=unsure
+   human  words=138 model=0.6220 style=0.4142 combined=0.5389 guess=unsure
+   human  words=114 model=0.7481 style=0.3673 combined=0.5958 guess=unsure
+   human  words=106 model=0.5984 style=0.4459 combined=0.5374 guess=unsure
+   human  words=145 model=0.5980 style=0.5206 combined=0.5670 guess=unsure
+   human  words=158 model=0.3805 style=0.3368 combined=0.3630 guess=unsure
+run 2: false positives = 0/10  guesses = ['human', 'unsure', 'unsure', 'human', 'unsure', 'unsure', 'unsure', 'unsure', 'unsure', 'unsure']
+run 3: false positives = 0/10  guesses = ['human', 'unsure', 'unsure', 'human', 'unsure', 'unsure', 'unsure', 'unsure', 'unsure', 'unsure']
+criterion 1 PASS [0, 0, 0]
+
+== Criterion 2: mean(AI) - mean(human) combined score (target >= 0.30)
+   ai     model=0.5525 style=0.4393 combined=0.5072 guess=unsure
+   ai     model=0.8938 style=0.5043 combined=0.7380 guess=ai
+   ai     model=0.7947 style=0.4423 combined=0.6537 guess=unsure
+   ai     model=0.5957 style=0.2946 combined=0.4753 guess=unsure
+   ai     model=0.7356 style=0.4193 combined=0.6091 guess=unsure
+mean AI=0.5967 mean human=0.4513 gap=0.1454
+criterion 2 FAIL 0.1454
+
+== Criterion 3: labels reachable
+real-submission guesses seen: {'unsure': 15, 'ai': 1, 'human': 3}
+   score=0.0000 want=human  got=human
+   score=0.3499 want=human  got=human
+   score=0.3500 want=unsure got=unsure
+   score=0.6999 want=unsure got=unsure
+   score=0.7000 want=ai     got=ai
+   score=1.0000 want=ai     got=ai
+boundary checks passed: 6/6 (plus 0.51 vs 0.95 distinct: unsure vs ai)
+real labels reached: ['ai', 'human', 'unsure']
+
+== Criterion 4: appeals
+submitted: [('91125e4c-cb71-417b-9aa3-0b646fadb1aa', 'ai'), ('413b218a-16a7-47b8-82e1-3b5d6aeb01f6', 'human'), ('fd8f6d19-202f-4336-a9ac-296a5a836e45', 'unsure'), ('b86cdebc-baf6-447e-b548-33573d452148', 'unsure'), ('31348807-45c4-4c55-a4cc-b2a8af4aafd8', 'unsure')]
+   91125e4c-cb71-417b-9aa3-0b646fadb1aa guess=ai -> 200 status=under_review appeal_entries=1 original_intact=True added=1
+   413b218a-16a7-47b8-82e1-3b5d6aeb01f6 guess=human -> 200 status=under_review appeal_entries=1 original_intact=True added=1
+   fd8f6d19-202f-4336-a9ac-296a5a836e45 guess=unsure -> 200 status=under_review appeal_entries=1 original_intact=True added=1
+   b86cdebc-baf6-447e-b548-33573d452148 guess=unsure -> 200 status=under_review appeal_entries=1 original_intact=True added=1
+   31348807-45c4-4c55-a4cc-b2a8af4aafd8 guess=unsure -> 200 status=under_review appeal_entries=1 original_intact=True added=1
+valid appeals passed: 5/5
+unknown id -> 404 content_not_found log lines added: 0
+second appeal -> 409 already_under_review
+criterion 4 PASS
+
+== Criterion 5: malformed input
+codes: [(400, True), (400, True), (400, True), (400, True), (400, True), (400, True), (413, True), (400, True)]
+4xx with JSON error key: 8/8; new log lines: 0
+criterion 5 PASS
