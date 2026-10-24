@@ -42,65 +42,79 @@ Two things worth knowing before you pick numbers:
   a **miss**.
 
 ---
-## 1.
 
-<!-- Your criterion. It must name a number. -->
+## 1. False positives stay rare on human writing
 
+Of 10 passages I know were written by people (5 plain, 5 formal; all from
+public-domain books published before 2020, so no chance of model output), at
+most **1 of 10** gets the high-confidence AI label. Checked in each of three
+runs, and every run has to hold.
 
-
-**Why this target:**
-
-
-
----
-
-## 2.
-
-<!-- Your criterion. -->
-
-
-
-**Why this target:**
-
-
+**Why this target:** A wrong accusation is the expensive error here. A writer
+who gets told their essay was probably machine-written has to prove a negative,
+and the system can't help them. Missing some AI text costs the site very
+little by comparison. 10% is still generous for a system this blunt, and I
+picked it knowing the gpt2 signal is likely to hit plain writing hardest.
 
 ---
 
-## 3.
+## 2. Clearly AI and clearly human text separate
 
-<!-- Your criterion. -->
+Mean combined score of 5 clearly AI passages minus mean combined score of the
+10 human passages from criterion 1 must be **at least 0.30**. The AI passages
+are ones I wrote in a generic assistant voice, so their origin is known by
+construction, not verified from outside.
 
-
-
-**Why this target:**
-
-
-
----
-
-## 4.
-
-<!-- Your criterion. -->
-
-
-
-**Why this target:**
-
-
+**Why this target:** If the two groups barely separate, no threshold I pick is
+going to tell them apart, and the labels are just noise with extra steps. 0.30
+is about the width of the unsure band I'm planning, so a gap that small would
+mean the middle band is covering the whole space.
 
 ---
 
-## 5.
+## 3. All three labels are reachable
 
-<!-- Your criterion. -->
+Two checks. First, real submissions from the eval set produce **all three**
+labels (high-confidence AI, high-confidence human, unsure) at least once. Second,
+`scoring.score_to_label` returns the expected label at each boundary: 0.00,
+just under and at `HUMAN_THRESHOLD`, just over and at `AI_THRESHOLD`, and 1.00.
+That's **7 of 7** boundary checks passing.
 
-
-
-**Why this target:**
-
-
+**Why this target:** A label nobody can reach is dead text in the README, and
+a gap between ranges would mean some score gets no label at all. Testing the
+exact boundaries catches off-by-one mistakes (`>` vs `>=`) that a random sample
+would miss.
 
 ---
+
+## 4. Appeals always change status and always get logged
+
+For 5 submissions covering at least two different labels, `POST /appeal`
+returns 200 with `"status": "under_review"`, and the log gains exactly one
+`appeal` entry with the same `content_id`. The original decision entry for each
+ID is still in the log and unchanged. An appeal on a made-up `content_id`
+returns 404 and adds zero lines to the log. A second appeal on the same ID
+returns 409. That's **5 of 5** appeals and **3 of 3** error cases.
+
+**Why this target:** The appeal path is the only recourse a writer has, since
+nothing gets re-scored automatically. If an appeal can silently fail, or
+overwrite the original decision, the record of what happened is gone, and
+that's the record anyone reviewing the case would need.
+
+---
+
+## 5. Malformed input is refused cleanly
+
+Eight malformed requests: empty `text`, whitespace-only `text`, missing `text`,
+`text` set to `null`, `text` as a number, missing `creator_id`, `text` over
+10,000 characters, and a body that isn't JSON. Every one must return a 4xx
+status with a JSON body that has an `error` key, and **none** may return a 5xx.
+None of them may add a decision entry to the audit log. That's **8 of 8**.
+
+**Why this target:** A crash on bad input is one of the most common real
+failures, and a 500 tells the caller nothing. Writing a decision entry for a
+request that never got scored would also muddy the log, which is supposed to
+show only real decisions.
 
 <!-- ─────────────────────────────────────────────────────────────────────────
      UNIT 8 — read this before you change anything above.
