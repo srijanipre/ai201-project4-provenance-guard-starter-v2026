@@ -175,7 +175,8 @@ $ curl "http://127.0.0.1:5000/log?limit=3"
 
 ## Rate Limiting
 
-**My limits:** ___ per minute, ___ per day
+**My limits:** 10 per minute, 100 per day (`config.py`, applied by the
+`@limiter.limit(...)` decorator on `app.py::submit`)
 
 **Why those numbers and not others:**
 <!-- Think about two people: a real writer submitting their own work a few
@@ -183,17 +184,75 @@ $ curl "http://127.0.0.1:5000/log?limit=3"
      thresholds. Your numbers have to be liveable for the first and hostile to
      the second. -->
 
+A real writer submits a piece, maybe revises it and resubmits a few times. Even
+someone fixing typos and resubmitting quickly rarely needs more than a handful
+in one minute, so 10 a minute doesn't get in their way. A heavy real day is a
+few dozen submissions, and 100 a day is well past that.
+
+A script mapping my thresholds needs hundreds of near-identical probes. At 10 a
+minute that's slow, and at 100 a day one caller can't map much in a day. The
+limit also protects the expensive part: every accepted request runs gpt2.
+
+I left the starter's 10/minute and lowered the daily cap from 200 to 100. 200 a
+day is far more than a writer needs and doubles what one caller can probe.
+
 **What a caller counts as:** <!-- per address, or per creator_id? They fail
 differently — one script can look like a thousand callers, and one household
 can look like one. -->
+
+Per `creator_id`, falling back to the caller's address when the body has no
+usable `creator_id` (`app.py::rate_limit_key`). Every request to `/submit`
+counts, including ones refused with a 4xx.
+
+The weakness: `creator_id` is whatever the caller sends, with no account
+behind it. A script that invents a new `creator_id` per request is never
+limited. That's exactly how the attack set looks (`attacker_<id>` per row).
+Per-address limiting would catch that but would lump a whole household or
+classroom behind one NAT into one caller. Fixing it properly needs real
+accounts, which this service doesn't have.
 
 **The run of status codes when I pushed past it:**
 
 <!-- python run_attacks.py --flood 15 -->
 
 ```
+$ python run_attacks.py --flood 15     # service on port 5050, see note below
+200 200 200 200 200 200 200 200 200 200 429 429 429 429 429
 
+5 of 15 were rate limited.
+Wrote results/flood_2026-11-01_2127.md
 ```
+
+The 11th request onwards gets a 429 with a JSON body:
+
+```json
+{"error": "rate_limited", "message": "Too many submissions. Try again shortly.", "limit": "10 per 1 minute"}
+```
+
+Each 429 is written to the audit log (`GET /log`):
+
+```json
+{"combined_score": null, "content_id": null, "creator_id": "flood_tester", "event": "rejected", "guess": null, "http_status": 429, "label": null, "limit": "10 per 1 minute", "model_score": null, "reason": "rate_limited", "status": "rejected", "style_score": null, "timestamp": "2026-11-02T03:27:04+00:00"}
+```
+
+**Rejected requests are logged too.** Any `/submit` request refused with a
+4xx or 5xx writes a `rejected` entry with the reason and HTTP status. Every
+entry, whether decision, appeal or rejection, carries all nine fields:
+`timestamp`, `content_id`, `creator_id`, `guess`, `model_score`,
+`style_score`, `combined_score`, `label`, `status`. Fields a rejection never
+computed are `null`. An appeal entry copies the guess, scores and label of
+the decision it's appealing. A bad request to `/appeal` still writes nothing,
+because criterion 4 requires a 404 appeal to add zero lines.
+
+```json
+{"combined_score": null, "content_id": null, "creator_id": "m1_check", "event": "rejected", "guess": null, "http_status": 400, "label": null, "model_score": null, "reason": "empty_text", "status": "rejected", "style_score": null, "timestamp": "2026-11-02T03:27:13+00:00"}
+```
+
+> **Note on ports:** an old debug-mode `app.py` from unit 7 was still holding
+> port 5000, so unit 8 runs used a fresh instance on port 5050 (`PORT=5050`).
+> `results/flood_2026-11-01_2126.md` is an earlier identical flood that hit
+> that old server after its auto-reloader had picked up the same code. Both
+> show 10 × 200 then 5 × 429.
 
 ---
 

@@ -27,6 +27,10 @@ import config
 
 _lock = threading.Lock()
 
+# The fields a decision fills in that appeals and rejections don't compute
+# themselves. They're still written on every entry so all entries share a shape.
+_DECISION_FIELDS = ("guess", "model_score", "style_score", "combined_score", "label")
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -73,7 +77,8 @@ def log_decision(
     return _append(entry)
 
 
-def log_appeal(content_id: str, creator_id: str, reasoning: str) -> dict:
+def log_appeal(content_id: str, creator_id: str, reasoning: str,
+               original: dict | None = None) -> dict:
     """
     Record an appeal beside the original decision.
 
@@ -81,13 +86,18 @@ def log_appeal(content_id: str, creator_id: str, reasoning: str) -> dict:
     decision stays exactly where it was and the appeal sits after it — which is
     the whole point of an audit log. Someone reading it later can see what was
     decided, that it was challenged, and in what order.
+
+    `original` is the decision being appealed. Its guess, scores and label are
+    copied onto the appeal entry so it carries all nine fields too.
     """
+    original = original or {}
     return _append({
         "timestamp": _now(),
         "content_id": content_id,
         "creator_id": creator_id,
-        "event": "appeal",
+        **{k: original.get(k) for k in _DECISION_FIELDS},
         "status": "under_review",
+        "event": "appeal",
         "reasoning": reasoning,
     })
 
@@ -104,9 +114,11 @@ def log_rejection(creator_id: str, reason: str, **extra) -> dict:
     """
     return _append({
         "timestamp": _now(),
+        "content_id": None,
         "creator_id": creator_id,
-        "event": "rejected",
+        **{k: None for k in _DECISION_FIELDS},
         "status": "rejected",
+        "event": "rejected",
         "reason": reason,
         **extra,
     })

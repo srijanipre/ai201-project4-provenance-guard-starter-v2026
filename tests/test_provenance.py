@@ -24,6 +24,9 @@ import scoring  # noqa: E402
 import stylometry  # noqa: E402
 import app as appmod  # noqa: E402
 
+NINE_FIELDS = ("timestamp", "content_id", "creator_id", "guess", "model_score",
+               "style_score", "combined_score", "label", "status")
+
 
 class StylometryTests(unittest.TestCase):
     def test_single_sentence_has_no_spread(self):
@@ -167,9 +170,13 @@ class RouteTests(unittest.TestCase):
         for p in self.patches:
             p.start()
         appmod.app.config["TESTING"] = True
+        # Most route tests send far more than the per-minute limit; the limiter
+        # gets its own test below.
+        appmod.limiter.enabled = False
         self.client = appmod.app.test_client()
 
     def tearDown(self):
+        appmod.limiter.enabled = True
         for p in self.patches:
             p.stop()
         self.tmp.cleanup()
@@ -182,7 +189,7 @@ class RouteTests(unittest.TestCase):
     def submit(self, body):
         return self.client.post("/submit", json=body)
 
-    def test_bad_bodies_return_4xx_and_log_nothing(self):
+    def test_bad_bodies_return_4xx_and_log_only_rejections(self):
         bad = [
             None,
             ["text"],
@@ -204,7 +211,10 @@ class RouteTests(unittest.TestCase):
                 self.assertGreaterEqual(resp.status_code, 400)
                 self.assertLess(resp.status_code, 500)
                 self.assertIn("error", resp.get_json())
-        self.assertEqual(self.entries(), [])
+        entries = self.entries()
+        self.assertEqual(len(entries), len(bad))
+        self.assertTrue(all(e["status"] == "rejected" for e in entries))
+        self.assertTrue(all(set(NINE_FIELDS) <= set(e) for e in entries))
 
     def test_submit_with_controlled_scores_hits_each_label(self):
         cases = [(0.9, 0.9, "ai"), (0.1, 0.1, "human"), (0.5, 0.5, "unsure")]
@@ -231,6 +241,7 @@ class RouteTests(unittest.TestCase):
         self.assertEqual(entry["style_score"], 0.6)
         self.assertEqual(entry["combined_score"], body["confidence"])
         self.assertEqual(entry["status"], "decided")
+        self.assertTrue(set(NINE_FIELDS) <= set(entry))
 
     def test_real_model_submission(self):
         resp = self.submit({
@@ -254,6 +265,9 @@ class RouteTests(unittest.TestCase):
 
         kinds = [e.get("event", "decision") for e in self.entries() if e.get("content_id") == cid]
         self.assertEqual(kinds, ["decision", "appeal"])
+        appeal = self.entries()[-1]
+        self.assertTrue(set(NINE_FIELDS) <= set(appeal))
+        self.assertEqual(appeal["guess"], "ai")
 
         again = self.client.post("/appeal", json={"content_id": cid, "reasoning": "again"})
         self.assertEqual(again.status_code, 409)
@@ -276,6 +290,22 @@ class RouteTests(unittest.TestCase):
                 resp = self.client.post("/appeal", json=body)
                 self.assertIn(resp.status_code, (400, 404))
                 self.assertIn("error", resp.get_json())
+
+    @unittest.skipUnless(config.RATE_LIMITING_ENABLED, "rate limiting is off")
+    def test_rate_limit_returns_429_and_logs_it(self):
+        appmod.limiter.enabled = True
+        appmod.limiter.reset()
+        body = {"text": "Some ordinary sentence here. Another one.", "creator_id": "flooder"}
+        with mock.patch.object(appmod.detector, "model_signal", return_value=0.5):
+            codes = [self.submit(body).status_code for _ in range(config.RATE_LIMIT_PER_MINUTE + 2)]
+        appmod.limiter.reset()
+        self.assertEqual(codes[:config.RATE_LIMIT_PER_MINUTE], [200] * config.RATE_LIMIT_PER_MINUTE)
+        self.assertEqual(codes[config.RATE_LIMIT_PER_MINUTE:], [429, 429])
+        rejected = [e for e in self.entries() if e["status"] == "rejected"]
+        self.assertEqual(len(rejected), 2)
+        self.assertEqual(rejected[0]["reason"], "rate_limited")
+        self.assertEqual(rejected[0]["creator_id"], "flooder")
+        self.assertTrue(set(NINE_FIELDS) <= set(rejected[0]))
 
     def test_health_and_ping_still_work(self):
         self.assertEqual(self.client.post("/ping", json={"message": "hi"}).status_code, 200)

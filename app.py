@@ -38,15 +38,9 @@ app = Flask(__name__)
 
 
 # ── Rate limiting — UNIT 8 ────────────────────────────────────────────────────
-# Off until you turn it on. In unit 8, Milestone 1:
-#
-#   1. Set RATE_LIMITING_ENABLED = True in config.py (or AI201_RATE_LIMITS=1)
-#   2. Choose your numbers there
-#   3. Uncomment the @limiter.limit(...) line on /submit below
-#
-# The order doesn't matter. While limiting is off, that decorator is a no-op
-# that quietly does nothing, so uncommenting it early costs you nothing — but
-# it also means no 429 until you've done step 1.
+# On from unit 8, Milestone 1. The numbers and the reasoning are in config.py;
+# AI201_RATE_LIMITS=0 turns it off, and the decorator on /submit then does
+# nothing.
 #
 # The storage backend is preconfigured, which stops Flask-Limiter printing a
 # warning on every start. In-memory is right for one laptop and wrong for
@@ -103,12 +97,10 @@ if config.RATE_LIMITING_ENABLED:
 
         ⚠️ An attack that shows up only as an absence is one you'll never find.
         """
-        payload = request.get_json(silent=True)
-        if not isinstance(payload, dict):
-            payload = {}
         audit.log_rejection(
-            creator_id=payload.get("creator_id", "unknown"),
+            creator_id=_creator_for_log(),
             reason="rate_limited",
+            http_status=429,
             limit=str(exc.description),
         )
         return jsonify({
@@ -157,8 +149,23 @@ def _json_error(status: int, error: str, message: str):
     return jsonify({"error": error, "message": message}), status
 
 
+def _creator_for_log() -> str:
+    """The creator_id to record for a refused request, or "unknown"."""
+    payload = request.get_json(silent=True)
+    creator = payload.get("creator_id") if isinstance(payload, dict) else None
+    if isinstance(creator, str) and creator.strip():
+        return creator[:200]
+    return "unknown"
+
+
+def _reject(status: int, error: str, message: str):
+    """Refuse a submission and leave a `rejected` entry in the log."""
+    audit.log_rejection(creator_id=_creator_for_log(), reason=error, http_status=status)
+    return _json_error(status, error, message)
+
+
 @app.post("/submit")
-# @limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE}/minute;{config.RATE_LIMIT_PER_DAY}/day")
+@limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE}/minute;{config.RATE_LIMIT_PER_DAY}/day")
 def submit():
     """
     Take a piece of text, score it, log the decision, answer.
@@ -172,35 +179,35 @@ def submit():
     """
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict):
-        return _json_error(400, "invalid_body", "Send a JSON object with 'text' and 'creator_id'.")
+        return _reject(400, "invalid_body", "Send a JSON object with 'text' and 'creator_id'.")
 
     if "text" not in payload:
-        return _json_error(400, "missing_field", "'text' is required.")
+        return _reject(400, "missing_field", "'text' is required.")
     text = payload["text"]
     if not isinstance(text, str):
-        return _json_error(400, "invalid_type", "'text' must be a string.")
+        return _reject(400, "invalid_type", "'text' must be a string.")
     if not text.strip():
-        return _json_error(400, "empty_text", "'text' is empty or only whitespace.")
+        return _reject(400, "empty_text", "'text' is empty or only whitespace.")
     if len(text) > config.MAX_TEXT_CHARS:
-        return _json_error(
+        return _reject(
             413, "text_too_long",
             f"'text' is {len(text)} characters; the limit is {config.MAX_TEXT_CHARS}.",
         )
 
     if "creator_id" not in payload:
-        return _json_error(400, "missing_field", "'creator_id' is required.")
+        return _reject(400, "missing_field", "'creator_id' is required.")
     creator_id = payload["creator_id"]
     if not isinstance(creator_id, str):
-        return _json_error(400, "invalid_type", "'creator_id' must be a string.")
+        return _reject(400, "invalid_type", "'creator_id' must be a string.")
     if not creator_id.strip():
-        return _json_error(400, "empty_creator_id", "'creator_id' is empty.")
+        return _reject(400, "empty_creator_id", "'creator_id' is empty.")
 
     try:
         model_score = detector.model_signal(text)
     except detector.DetectorUnavailable as exc:
-        return _json_error(503, "detector_unavailable", str(exc))
+        return _reject(503, "detector_unavailable", str(exc))
     except ValueError as exc:
-        return _json_error(422, "text_too_short", str(exc))
+        return _reject(422, "text_too_short", str(exc))
 
     style_score = stylometry.style_signal(text)
     combined = scoring.combine_signals(model_score, style_score)
@@ -274,6 +281,7 @@ def appeal():
         content_id=content_id,
         creator_id=original["creator_id"],
         reasoning=reasoning.strip(),
+        original=original,
     )
     return jsonify({
         "content_id": content_id,
