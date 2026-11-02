@@ -158,8 +158,11 @@ def check_appeals(results, ctx):
         errors.append({"case": "second appeal", "http": resp.status_code,
                        "ok": resp.status_code == 409})
 
-    resp = http.post(f"{url}/appeal", json={"content_id": submitted[0]["content_id"]}
-                     if submitted else {}, timeout=ctx["timeout"])
+    # No reasoning field, so this should be refused with a 400.
+    bad_body = {}
+    if submitted:
+        bad_body = {"content_id": submitted[0]["content_id"]}
+    resp = http.post(f"{url}/appeal", json=bad_body, timeout=ctx["timeout"])
     body = resp.json() if resp.content else {}
     errors.append({"case": "malformed body (no reasoning)", "http": resp.status_code,
                    "ok": resp.status_code == 400 and "error" in body})

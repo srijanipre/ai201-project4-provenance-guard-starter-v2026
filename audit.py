@@ -27,10 +27,6 @@ import config
 
 _lock = threading.Lock()
 
-# The fields a decision fills in that appeals and rejections don't compute
-# themselves. They're still written on every entry so all entries share a shape.
-_DECISION_FIELDS = ("guess", "model_score", "style_score", "combined_score", "label")
-
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -95,7 +91,11 @@ def log_appeal(content_id: str, creator_id: str, reasoning: str,
         "timestamp": _now(),
         "content_id": content_id,
         "creator_id": creator_id,
-        **{k: original.get(k) for k in _DECISION_FIELDS},
+        "guess": original.get("guess"),
+        "model_score": original.get("model_score"),
+        "style_score": original.get("style_score"),
+        "combined_score": original.get("combined_score"),
+        "label": original.get("label"),
         "status": "under_review",
         "event": "appeal",
         "reasoning": reasoning,
@@ -111,12 +111,18 @@ def log_rejection(creator_id: str, reason: str, **extra) -> dict:
     **an attack that shows up only as an absence is one you'll never find.** A
     thousand requests that got a 429 and left no trace look exactly like a
     quiet afternoon.
+
+    The decision fields are written as null so every entry has all nine.
     """
     return _append({
         "timestamp": _now(),
         "content_id": None,
         "creator_id": creator_id,
-        **{k: None for k in _DECISION_FIELDS},
+        "guess": None,
+        "model_score": None,
+        "style_score": None,
+        "combined_score": None,
+        "label": None,
         "status": "rejected",
         "event": "rejected",
         "reason": reason,
