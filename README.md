@@ -261,19 +261,51 @@ because criterion 4 requires a 404 appeal to add zero lines.
 <!-- Every attack with its outcome and a held-or-broke mark.
      `run_attacks.py --label before` produces the table. -->
 
-
+> **Blocked: the attack set isn't in this repository.** `run_attacks.py
+> --set <folder>` needs the staff-provided `attacks.csv` and
+> `attacks_malformed_requests.csv`. Neither is in the repo or its history, and
+> neither is anywhere on this machine. I haven't written stand-in attacks,
+> because a set I wrote myself would test what I already thought of, not what
+> staff built from the blind spots. The table, the HELD/BROKE count, the ten
+> audit entries from the run and the worst outcome all wait on those two
+> files.
+>
+> Once they're in place (for example in `attacks/`), with the service on port
+> 5050 and the code as it was before the improvement (commit before "The
+> Improvement" below):
+>
+> ```bash
+> PORT=5050 python run_attacks.py --set attacks --label before
+> ```
 
 **Ten audit log entries from the run**
 
 <!-- Choose entries that show the interesting failures, not the ten easiest. -->
 
-```json
+*Not from the attack run, which is blocked.* These ten are real entries from
+`logs/audit.jsonl`, written during the "before" criteria run
+(2026-11-02 03:29 UTC). They cover a correct AI call, two formal human passages
+sitting high in unsure, an AI passage the system missed, an appeal, and four
+rejections. The 429 rejections are under **Rate Limiting**. They should be
+swapped for attack-run entries once that run exists.
 
+```json
+{"timestamp": "2026-11-02T03:29:33+00:00", "content_id": "c4271e0e-a769-44d2-b333-686647860018", "creator_id": "eval_AI vs human _2", "guess": "ai", "model_score": 0.8938, "style_score": 0.5043, "combined_score": 0.738, "label": "Parts of this writing match patterns often found in machine-generated text. That's an automated estimate, not proof of how it was written, and the writer can appeal it for a review.", "status": "decided"}
+{"timestamp": "2026-11-02T03:29:30+00:00", "content_id": "a581b53b-3ba7-411c-8bba-afa5e29e09ae", "creator_id": "eval_human passag_7", "guess": "unsure", "model_score": 0.7481, "style_score": 0.3673, "combined_score": 0.5958, "label": "We couldn't tell with enough confidence whether a person or an AI wrote this. Plenty of human writing looks machine-like to automated checks, so no conclusion is drawn from this result.", "status": "decided"}
+{"timestamp": "2026-11-02T03:29:31+00:00", "content_id": "164a964b-5670-4def-bc53-da468c45f1a7", "creator_id": "eval_human passag_9", "guess": "unsure", "model_score": 0.598, "style_score": 0.5206, "combined_score": 0.567, "label": "We couldn't tell with enough confidence whether a person or an AI wrote this. Plenty of human writing looks machine-like to automated checks, so no conclusion is drawn from this result.", "status": "decided"}
+{"timestamp": "2026-11-02T03:29:33+00:00", "content_id": "144cd20b-87d0-41a4-b375-29a61caabef5", "creator_id": "eval_AI vs human _1", "guess": "unsure", "model_score": 0.5525, "style_score": 0.4393, "combined_score": 0.5072, "label": "We couldn't tell with enough confidence whether a person or an AI wrote this. Plenty of human writing looks machine-like to automated checks, so no conclusion is drawn from this result.", "status": "decided"}
+{"timestamp": "2026-11-02T03:29:30+00:00", "content_id": "c4f9deb2-90c9-47df-bf39-726ba5fe5717", "creator_id": "eval_human passag_1", "guess": "human", "model_score": 0.4097, "style_score": 0.2386, "combined_score": 0.3413, "label": "We think this was probably written by a person. No automated check is perfect, so this is an estimate rather than a guarantee.", "status": "decided"}
+{"timestamp": "2026-11-02T03:29:44+00:00", "content_id": "29d7d54a-ecaf-4faf-a01b-6520f1334af8", "creator_id": "eval_appeal path_1", "guess": "ai", "model_score": 0.8938, "style_score": 0.5043, "combined_score": 0.738, "label": "Parts of this writing match patterns often found in machine-generated text. That's an automated estimate, not proof of how it was written, and the writer can appeal it for a review.", "status": "under_review", "event": "appeal", "reasoning": "I wrote this myself and can share my drafts."}
+{"timestamp": "2026-11-02T03:29:45+00:00", "content_id": null, "creator_id": "eval_bad_empty", "guess": null, "model_score": null, "style_score": null, "combined_score": null, "label": null, "status": "rejected", "event": "rejected", "reason": "empty_text", "http_status": 400}
+{"timestamp": "2026-11-02T03:29:45+00:00", "content_id": null, "creator_id": "unknown", "guess": null, "model_score": null, "style_score": null, "combined_score": null, "label": null, "status": "rejected", "event": "rejected", "reason": "invalid_body", "http_status": 400}
+{"timestamp": "2026-11-02T03:29:45+00:00", "content_id": null, "creator_id": "eval_bad_huge", "guess": null, "model_score": null, "style_score": null, "combined_score": null, "label": null, "status": "rejected", "event": "rejected", "reason": "text_too_long", "http_status": 413}
+{"timestamp": "2026-11-02T03:29:45+00:00", "content_id": null, "creator_id": "eval_bad_missing", "guess": null, "model_score": null, "style_score": null, "combined_score": null, "label": null, "status": "rejected", "event": "rejected", "reason": "missing_field", "http_status": 400}
 ```
 
 **The single worst outcome** — the one I'd least want to explain to a writer
 whose work got caught by it:
 
+*Pending the attack run.*
 
 
 ---
@@ -282,20 +314,103 @@ whose work got caught by it:
 
 <!-- Your five criteria across three trials. `run_eval.py --label before`. -->
 
+`results/run_2026-11-01_2129_before.md`. Every criterion is measured as
+written in `criteria.md`. Each one has a scenario in `scenarios.py`, and that
+scenario's `check_*` function turns a trial's responses into the criterion's
+number. I extended `run_eval.py` to run those checks, to send a non-JSON body
+raw, and to diff `GET /log` around each trial, so criteria 4 and 5 are
+checked against the live log and not by hand.
+
 | Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
 |---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |
+| 1. False positives on human writing | ≤ 1 of 10 labelled high-confidence AI, every run | 0/10 | 0/10 | 0/10 |  |
+| 2. AI and human separate | mean AI − mean human ≥ 0.30 | 0.145 | 0.145 | 0.145 |  |
+| 3. All three labels reachable | all 3 labels from real text, and 6/6 boundary checks | 3 labels, 6/6 | 3 labels, 6/6 | 3 labels, 6/6 |  |
+| 4. Appeals change status and are logged | 5/5 appeals, 3/3 error cases | 5/5, 3/3 | 5/5, 3/3 | 5/5, 3/3 |  |
+| 5. Malformed input refused cleanly | 8/8 4xx with `error`, none 5xx, 0 decision entries | 8/8, 0 | 8/8, 0 | 8/8, 0 |  |
+
+**The three trials are identical to four decimal places.** gpt2 runs in eval
+mode with no sampling, so the same text gives the same perplexity on the same
+machine. The three trials do show the result isn't a one-off. They don't add
+any spread.
+
+**Criterion 1 uses public-domain passages, not my own writing.** That's how
+the criterion was written in unit 7 (5 plain and 5 formal passages from books
+published before 2020), so it's measured that way here. The course template
+suggests your own writing for this one. That would be a different criterion,
+and it would need samples only I can provide.
 
 **Real output from one trial**, pasted as text, naming the file and function
-that produced it:
+that produced it. All from trial 1 of `results/run_2026-11-01_2129_before.md`,
+produced by `run_eval.py::main` (the response rows) and the named
+`scenarios.py` check. The rows are excerpts: the full lists are in the results
+file.
+
+*Criterion 1:* `scenarios.py::check_false_positives`, plus the first two of
+the ten responses
 
 ```json
-
+{"value": "0/10 AI", "passed": true, "false_positives": 0,
+ "guesses": ["human", "unsure", "unsure", "human", "unsure", "unsure", "unsure", "unsure", "unsure", "unsure"]}
 ```
+
+```json
+[
+  {"status": 200, "content_id": "c4f9deb2-90c9-47df-bf39-726ba5fe5717", "guess": "human", "confidence": 0.3413,
+   "model_score": 0.4097, "style_score": 0.2386, "sent": "You don’t know about me without you have read a book by the name of Th"},
+  {"status": 200, "content_id": "388f7fcb-aa11-4c88-be38-7a2d5a02a1e6", "guess": "unsure", "confidence": 0.4569,
+   "model_score": 0.4691, "style_score": 0.4386, "sent": "After supper she got out her book and learned me about Moses and the B"}
+]
+```
+
+*Criterion 2:* `scenarios.py::check_separation`
+
+```json
+{"value": "gap 0.145", "passed": false, "mean_ai": 0.5967, "mean_human": 0.4513, "gap": 0.1454}
+```
+
+*Criterion 3:* `scenarios.py::check_label_coverage`
+
+```json
+{"value": "3/3 labels, 6/6 bounds", "passed": true,
+ "labels_seen": {"human": 3, "unsure": 15, "ai": 1},
+ "boundaries": [
+   {"score": 0.0, "want": "human", "got": "human"},
+   {"score": 0.3499, "want": "human", "got": "human"},
+   {"score": 0.35, "want": "unsure", "got": "unsure"},
+   {"score": 0.6999, "want": "unsure", "got": "unsure"},
+   {"score": 0.7, "want": "ai", "got": "ai"},
+   {"score": 1.0, "want": "ai", "got": "ai"}]}
+```
+
+*Criterion 4:* `scenarios.py::check_appeals` (first two of five appeals)
+
+```json
+{"value": "5/5 appeals, 3/3 errors", "passed": true, "labels_appealed": ["ai", "human", "unsure"],
+ "appeals": [
+   {"content_id": "29d7d54a-ecaf-4faf-a01b-6520f1334af8", "guess": "ai", "http": 200, "status": "under_review",
+    "lines_added": 1, "appeal_entry": true, "original_intact": true},
+   {"content_id": "2266338a-0fa6-4fb6-83f7-64a81b42edfb", "guess": "human", "http": 200, "status": "under_review",
+    "lines_added": 1, "appeal_entry": true, "original_intact": true}],
+ "error_cases": [
+   {"case": "unknown content_id", "http": 404, "lines_added": 0, "ok": true},
+   {"case": "second appeal", "http": 409, "ok": true},
+   {"case": "malformed body (no reasoning)", "http": 400, "ok": true}]}
+```
+
+The malformed appeal body, which unit 7 only covered with a unit test, now
+runs live in every trial.
+
+*Criterion 5:* `scenarios.py::check_malformed`
+
+```json
+{"value": "8/8 clean, 0 decisions logged", "passed": true,
+ "statuses": [400, 400, 400, 400, 400, 400, 413, 400],
+ "decision_entries_added": 0, "rejected_entries_added": 8}
+```
+
+Each of the eight now leaves a `rejected` entry (Milestone 1). The criterion
+only forbids *decision* entries, and none were written.
 
 **Diagnoses**
 

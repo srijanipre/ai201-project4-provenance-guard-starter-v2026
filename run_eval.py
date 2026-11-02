@@ -16,9 +16,9 @@ about label coverage needs inputs across the score range.
 !! Three trials, and **your first signal runs a model, so identical input can
 score differently twice.** That's exactly why repeats matter here.
 
-This does the sending and the recording. It does not decide whether a trial
-passed — that depends on the criterion you wrote, so the Verdict column comes
-back blank.
+This does the sending and the recording. A scenario with a `check` (see
+scenarios.py) gets that check run after every trial, and the run log then
+shows the measured number per trial and MET only if all three trials held.
 """
 
 import argparse
@@ -60,6 +60,8 @@ def bodies_for(scenario):
 
 def describe(body):
     """A short, readable note of what was sent — for the report."""
+    if isinstance(body, str):
+        return f"(raw, not JSON) {body[:60]}"
     if set(body) == {"text", "creator_id"} and isinstance(body.get("text"), str):
         text = body["text"]
         return text[:70] if text else "(empty text)"
@@ -103,6 +105,9 @@ def main():
               file=sys.stderr)
         sys.exit(1)
 
+    def read_log():
+        return requests.get(f"{args.url}/log", timeout=args.timeout).json()["entries"]
+
     if args.trials < 3:
         print(f"!! {args.trials} trial(s). The submission asks for three.\n")
 
@@ -110,22 +115,31 @@ def main():
     for scenario in scenarios.SCENARIOS:
         print(f"\n{scenario['name']}  (criterion {scenario.get('criterion') or '—'})")
 
-        trials = []
+        trials, checks = [], []
         for trial in range(1, args.trials + 1):
+            log_before = read_log()
             results = []
             for i, body in enumerate(bodies_for(scenario), 1):
                 preview = describe(body)
                 try:
-                    response = requests.post(f"{args.url}/submit", json=body,
-                                             timeout=args.timeout)
+                    if isinstance(body, str):
+                        response = requests.post(
+                            f"{args.url}/submit", data=body.encode("utf-8"),
+                            headers={"Content-Type": "application/json"},
+                            timeout=args.timeout)
+                    else:
+                        response = requests.post(f"{args.url}/submit", json=body,
+                                                 timeout=args.timeout)
                     payload = response.json() if response.content else {}
                     results.append({
                         "status": response.status_code,
+                        "content_id": payload.get("content_id"),
                         "guess": payload.get("guess"),
                         "confidence": payload.get("confidence"),
                         "model_score": payload.get("model_score"),
                         "style_score": payload.get("style_score"),
                         "label": payload.get("label"),
+                        "has_error_key": "error" in payload,
                         "sent": preview,
                     })
                 except Exception as exc:  # noqa: BLE001
@@ -133,10 +147,19 @@ def main():
                                     "sent": preview})
 
             trials.append(results)
-            guesses = [r.get("guess") or "—" for r in results]
+            guesses = [r.get("guess") or str(r.get("status")) for r in results]
             print(f"  trial {trial}: {', '.join(guesses)}")
 
-        rows.append({"scenario": scenario, "trials": trials})
+            if scenario.get("check"):
+                ctx = {"url": args.url, "http": requests, "timeout": args.timeout,
+                       "read_log": read_log,
+                       "log_added": read_log()[len(log_before):]}
+                outcome = scenario["check"](results, ctx)
+                checks.append(outcome)
+                print(f"           {outcome['value']}  "
+                      f"{'held' if outcome['passed'] else 'MISSED'}")
+
+        rows.append({"scenario": scenario, "trials": trials, "checks": checks})
 
     write_report(rows, args)
 
@@ -158,8 +181,8 @@ def write_report(rows, args):
         "- Service: `app.py::submit` · scoring: `scoring.py::combine_signals`",
         f"- {n} trials per criterion · {dt.datetime.now().strftime('%Y-%m-%d %H:%M')}",
         "",
-        "Fill in Target from `criteria.md`, and Run and Verdict from the output",
-        "underneath. Whether a trial passed depends on the criterion you wrote.",
+        "Each Run cell is the number the criterion names, measured by the",
+        "scenario's check in `scenarios.py`. MET means all three trials held.",
         "",
         f"| Criterion | Target | {headers} | Verdict |",
         f"|---|---|{divider}|---|",
@@ -169,7 +192,14 @@ def write_report(rows, args):
         scenario = row["scenario"]
         number = scenario.get("criterion")
         name = f"{number}. {scenario['name']}" if number else scenario["name"]
-        lines.append(f"| {name} |  | {' | '.join([' '] * n)} |  |")
+        checks = row["checks"]
+        if checks:
+            cells = [f"{c['value']} ({'held' if c['passed'] else 'missed'})" for c in checks]
+            verdict = "MET" if all(c["passed"] for c in checks) else "MISSED"
+        else:
+            cells, verdict = [" "] * n, ""
+        lines.append(f"| {name} | {scenario.get('target', '')} | "
+                     f"{' | '.join(cells)} | {verdict} |")
 
     lines += ["", "---", "", "## What actually came back", "",
               "Real output. Paste the relevant parts into your README — the rubric",
@@ -181,6 +211,10 @@ def write_report(rows, args):
         for trial_number, results in enumerate(row["trials"], 1):
             lines += [f"**Trial {trial_number}**", "", "```json",
                       json.dumps(results, indent=2), "```", ""]
+            if row["checks"]:
+                lines += [f"Check (`scenarios.py::{scenario['check'].__name__}`):", "",
+                          "```json", json.dumps(row["checks"][trial_number - 1], indent=2),
+                          "```", ""]
 
     path.write_text("\n".join(lines), encoding="utf-8")
     print(f"\nWrote {path.relative_to(config.ROOT)}")
