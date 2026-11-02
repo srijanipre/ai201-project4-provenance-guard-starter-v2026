@@ -323,11 +323,15 @@ checked against the live log and not by hand.
 
 | Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
 |---|---|---|---|---|---|
-| 1. False positives on human writing | ≤ 1 of 10 labelled high-confidence AI, every run | 0/10 | 0/10 | 0/10 |  |
-| 2. AI and human separate | mean AI − mean human ≥ 0.30 | 0.145 | 0.145 | 0.145 |  |
-| 3. All three labels reachable | all 3 labels from real text, and 6/6 boundary checks | 3 labels, 6/6 | 3 labels, 6/6 | 3 labels, 6/6 |  |
-| 4. Appeals change status and are logged | 5/5 appeals, 3/3 error cases | 5/5, 3/3 | 5/5, 3/3 | 5/5, 3/3 |  |
-| 5. Malformed input refused cleanly | 8/8 4xx with `error`, none 5xx, 0 decision entries | 8/8, 0 | 8/8, 0 | 8/8, 0 |  |
+| 1. False positives on human writing | ≤ 1 of 10 labelled high-confidence AI, every run | 0/10 | 0/10 | 0/10 | **MET** |
+| 2. AI and human separate | mean AI − mean human ≥ 0.30 | 0.145 | 0.145 | 0.145 | **MISSED** |
+| 3. All three labels reachable | all 3 labels from real text, and 6/6 boundary checks | 3 labels, 6/6 | 3 labels, 6/6 | 3 labels, 6/6 | **MET** |
+| 4. Appeals change status and are logged | 5/5 appeals, 3/3 error cases | 5/5, 3/3 | 5/5, 3/3 | 5/5, 3/3 | **MET** |
+| 5. Malformed input refused cleanly | 8/8 4xx with `error`, none 5xx, 0 decision entries | 8/8, 0 | 8/8, 0 | 8/8, 0 | **MET** |
+
+Each verdict is against the original target in `criteria.md`, and it holds
+only if all three trials hit it. Nothing in `criteria.md` was changed. All
+five criteria could be measured as written, so there's no revision.
 
 **The three trials are identical to four decimal places.** gpt2 runs in eval
 mode with no sampling, so the same text gives the same perplexity on the same
@@ -427,6 +431,63 @@ only forbids *decision* entries, and none were written.
                         signal at 0.6, so it dragged the whole score down."
 
      Look for a pattern. Five failures on one signal is one problem, not five. -->
+
+**Broken attacks:** none diagnosed yet. The attack set is missing (see
+**Attack Run — Before**), so there are no HELD or BROKE verdicts to diagnose.
+
+**Criterion 2 — MISSED (gap 0.145 against 0.30, all three trials).**
+Stages: **signal one** and **signal two**, not the combining rule or the label
+mapping.
+
+Mean scores over the 5 AI and 10 human passages, from the before run:
+
+| | mean AI | mean human | gap |
+|---|---|---|---|
+| signal one (model) | 0.7145 | 0.5157 | **0.199** |
+| signal two (style) | 0.4200 | 0.3547 | **0.065** |
+| combined (0.6 / 0.4) | 0.5967 | 0.4513 | **0.145** |
+
+- **Signal one is short on its own.** gpt2 separates the groups by 0.199.
+  Formal human prose is the problem. The five Mill and Thoreau passages
+  average 0.589 on the model signal (one, `human_formal[1]`, scores 0.748),
+  against 0.442 for the plain passages and 0.715 for the AI ones. Formal
+  writing uses long, conventional constructions that gpt2 predicts well, so
+  it reads as machine-like.
+- **Signal two barely separates, because one of its three parts runs
+  backwards.** Breaking the style score into its components (mean AI-ish
+  component value, AI minus human):
+
+  | component | AI | human | gap |
+  |---|---|---|---|
+  | sentence-length spread | 0.819 | 0.538 | **+0.281** |
+  | punctuation density | 0.357 | 0.231 | **+0.126** |
+  | type-token ratio | 0.084 | 0.295 | **−0.211** |
+
+  The AI passages have a *higher* moving-average TTR (0.871) than the human
+  ones (0.782). The component assumes the reverse, so it marks the AI text as
+  human-like by 0.211 and cancels most of what the other two measure. Without
+  it, the style gap on the same passages is 0.203.
+- **The combining rule isn't the cause.** A weighted average can't separate
+  the groups more than its best input does. Even putting all the weight on
+  the model signal gives 0.199, still under 0.30. The 0.6 / 0.4 weights pull
+  the gap down to 0.145 only because the style signal is so weak.
+- **The label mapping is irrelevant.** The criterion is about combined
+  scores, before any label is chosen.
+
+**Pattern across the results.** The miss and the near-misses come from one
+place: formal human prose and fluent AI prose look alike to both signals. On
+the model signal, formal human writing is predictable. On the style signal,
+formal writing has flat sentence lengths, and the AI passages have a varied
+vocabulary. The criteria that pass (3, 4, 5) test the route and the label
+mapping, which work. The two that test the signals (1 and 2) either miss or
+pass only because the 0.70 AI threshold is high.
+
+**Criterion 1 passes, but by threshold, not by separation.** 0 of 10 human
+passages got the AI label, but 8 of 10 landed in unsure. The closest was
+`human_formal[1]` at 0.5958, 0.10 under the AI bar. The same high threshold
+leaves 4 of 5 clearly AI passages in unsure too (`ai_clear[0]` at 0.5072,
+`ai_clear[3]` at 0.4753). The system avoids false accusations mostly by
+declining to decide.
 
 
 
