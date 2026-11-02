@@ -4,7 +4,8 @@ Signal two: the style signal.
 Signal one reads the text for meaning. This one measures it *as text* — the
 shape of it, without understanding a word.
 
-The three measures are below, and style_signal combines them into one score.
+The three measures are below. style_signal combines two of them into one score
+(type-token ratio dropped out in unit 8; see style_signal).
 
     sentence_length_spread   do sentences vary in length, or march in step?
     type_token_ratio         how much of the vocabulary repeats?
@@ -109,17 +110,19 @@ def style_signal(text: str) -> float:
     """
     The style signal as a 0–1 score. **Higher means more likely AI.**
 
-    Each measure is turned into a 0–1 "AI-ish" component, then the three are
-    averaged with equal weight.
+    Sentence spread and punctuation are each turned into a 0–1 "AI-ish"
+    component, then the two are averaged with equal weight.
 
       - sentence spread: CV of 1.0 or more counts as fully human-like. Flat
         sentences (CV near 0) count as AI-ish. Under three sentences gives no
         real reading, so the component is neutral (0.5).
-      - type-token ratio: a moving-average TTR of 0.9 or more counts as fully
-        human-like, and 0.5 or less as fully AI-ish, with a straight line in
-        between.
       - punctuation: a rate of 0.12 marks per word or more counts as fully
         human-like, and none at all as fully AI-ish.
+
+    Type-token ratio is still measured (see type_token_ratio) but no longer
+    counts. Unit 8: on the calibration set it ran backwards, AI passages more
+    varied than human ones, and its component cut the style gap from 0.203 to
+    0.065. See the README's "The Improvement".
 
     The reference points are scale choices written in config.py, not fitted
     numbers.
@@ -133,14 +136,10 @@ def style_signal(text: str) -> float:
     else:
         spread_ai = 1.0 - min(cv / config.STYLE_SPREAD_HUMAN_CV, 1.0)
 
-    ttr = type_token_ratio(text)
-    lo, hi = config.STYLE_TTR_AI, config.STYLE_TTR_HUMAN
-    variety_ai = 1.0 - min(max((ttr - lo) / (hi - lo), 0.0), 1.0)
-
     punct = punctuation_density(text)
     punct_ai = 1.0 - min(punct / config.STYLE_PUNCT_HUMAN_RATE, 1.0)
 
-    score = (spread_ai + variety_ai + punct_ai) / 3.0
+    score = (spread_ai + punct_ai) / 2.0
     return round(min(max(score, 0.0), 1.0), 4)
 
 

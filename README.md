@@ -495,22 +495,105 @@ declining to decide.
 
 ## The Improvement
 
-**What I changed:**
+**What I changed:** I took the type-token ratio component out of the style
+signal. `stylometry.py::style_signal` now averages two components, sentence
+spread and punctuation, where it used to average three. `type_token_ratio`
+itself is still there and still printed by `python stylometry.py`. It just
+doesn't count. Nothing else changed: the model signal, the 0.6 / 0.4 weights,
+the 0.35 / 0.70 thresholds and the label text are all as they were in the
+before run.
 
-**Which diagnosis pointed at it:**
+**Which diagnosis pointed at it:** criterion 2's. The TTR component ran
+backwards on the calibration passages. It scored the AI text as more
+human-like than the human text by 0.211, and that wiped out most of the style
+signal's 0.281 + 0.126 from the other two components. Of the three stages that
+could move the gap, it was the only one with a component pointing the wrong
+way. Reweighting couldn't fix it either, since even all the weight on the
+model signal tops out at 0.199.
+
+I dropped it rather than flipped it. Flipping would claim that higher
+vocabulary variety means AI, and 15 passages aren't enough to support that.
+Dropping it only claims that this measure isn't helping here.
+
+**A caveat that matters:** the change was chosen by looking at the same 15
+calibration passages that criteria 1–3 then re-measure. So the after numbers
+are in-sample. They show the change does what the diagnosis predicted. They
+don't show it generalises. The attack set would have been the out-of-sample
+check.
 
 ### Attack Run — After
 
 <!-- Same format. `run_attacks.py --label after` -->
 
+> **Blocked, same as the before run:** the attack set isn't available, so
+> there's no before or after attack table to compare. With the files in
+> `attacks/` it's `PORT=5050 python run_attacks.py --set attacks --label
+> after`. The before run would need the commit before this change checked out
+> first.
 
+### Criteria — before and after, side by side
+
+`results/run_2026-11-01_2129_before.md` against
+`results/run_2026-11-01_2133_after.md`, three trials each. All three trials
+were identical again in both runs.
+
+| Criterion | Target | Before (×3) | After (×3) | Before | After |
+|---|---|---|---|---|---|
+| 1. False positives | ≤ 1 of 10 | 0/10 | 0/10 | MET | MET |
+| 2. Separation | gap ≥ 0.30 | 0.145 | **0.201** | MISSED | MISSED |
+| 3. Labels reachable | 3 labels, 6/6 | ai 1 · unsure 15 · human 3; 6/6 | ai **2** · unsure 14 · human 3; 6/6 | MET | MET |
+| 4. Appeals | 5/5, 3/3 | 5/5, 3/3 | 5/5, 3/3 | MET | MET |
+| 5. Malformed input | 8/8, 0 decisions | 8/8, 0 | 8/8, 0 | MET | MET |
+
+Per passage, criterion 2's run (trial 1 of each):
+
+| Passage | style before → after | combined before → after | label before → after |
+|---|---|---|---|
+| ai_clear[0] | 0.4393 → 0.6113 | 0.5072 → 0.5760 | unsure → unsure |
+| ai_clear[1] | 0.5043 → 0.6184 | 0.7380 → 0.7836 | ai → ai |
+| ai_clear[2] | 0.4423 → 0.6384 | 0.6537 → 0.7322 | unsure → **ai** |
+| ai_clear[3] | 0.2946 → 0.4419 | 0.4753 → 0.5342 | unsure → unsure |
+| ai_clear[4] | 0.4193 → 0.6290 | 0.6091 → 0.6930 | unsure → unsure |
+| human_plain[0] | 0.2386 → 0.1316 | 0.3413 → 0.2985 | human → human |
+| human_plain[1] | 0.4386 → 0.4896 | 0.4569 → 0.4773 | unsure → unsure |
+| human_plain[2] | 0.2568 → 0.2881 | 0.4097 → 0.4223 | unsure → unsure |
+| human_plain[3] | 0.2618 → 0.2822 | 0.2572 → 0.2653 | human → human |
+| human_plain[4] | 0.2661 → 0.2500 | 0.4458 → 0.4394 | unsure → unsure |
+| human_formal[0] | 0.4142 → 0.5101 | 0.5389 → 0.5772 | unsure → unsure |
+| human_formal[1] | 0.3673 → 0.4228 | 0.5958 → **0.6180** | unsure → unsure |
+| human_formal[2] | 0.4459 → 0.5444 | 0.5374 → 0.5768 | unsure → unsure |
+| human_formal[3] | 0.5206 → 0.5194 | 0.5670 → 0.5666 | unsure → unsure |
+| human_formal[4] | 0.3368 → 0.4063 | 0.3630 → 0.3908 | unsure → unsure |
+| **mean AI / mean human** | | **0.5967 / 0.4513 → 0.6638 / 0.4632** | |
 
 **Did it help, and how do I know:**
 
 <!-- Widening the unsure band usually fixes one problem and creates another.
      Reporting that trade honestly is worth full credit. -->
 
+Partly. It moved the number it was aimed at, and it cost something on the
+side that matters more.
 
+- **Improved:** the gap went from 0.145 to 0.201 in all three trials, as the
+  component arithmetic predicted (0.6 × 0.199 + 0.4 × 0.203 = 0.201). Mean AI
+  rose by 0.067 and mean human by only 0.012. One more clearly AI passage
+  (`ai_clear[2]`, 0.6537 → 0.7322) now gets the AI label. Across the 19
+  calibration passages, AI labels went from 1 to 2.
+- **Still missed:** criterion 2 is still 0.10 short of 0.30. The model signal
+  caps what any style fix can do, and formal human prose still averages
+  0.589 on it.
+- **Regression:** human scores went *up*, not down. Mean human rose from
+  0.4513 to 0.4632, and the closest human passage to the AI bar,
+  `human_formal[1]`, went from 0.5958 to 0.6180. Its margin under 0.70 shrank
+  from 0.104 to 0.082. Criterion 1 still holds at 0/10, but with less room.
+  Dropping TTR removed a component that happened to read formal human text as
+  human-like, for the wrong reason, so formal writers lost a cushion they
+  never should have relied on.
+- **Unchanged:** criteria 3, 4 and 5 are identical, as expected for a change
+  that only touches signal two. The 26 unit tests still pass.
+
+The trade, in one line: AI detection got better on the calibration set, and
+the highest-scoring human passage moved 0.022 closer to being called AI.
 
 ---
 

@@ -72,6 +72,7 @@ WEIGHT_STYLE_SIGNAL = 0.4
 # (see stylometry.style_signal). These set where "fully human-like" and "fully
 # AI-like" sit on each raw measure. They're scale choices, not fitted values.
 STYLE_SPREAD_HUMAN_CV = 1.0     # sentence-length CV at or above this reads fully human
+# Unused since unit 8: TTR no longer counts toward style_signal.
 STYLE_TTR_AI = 0.5              # moving-average TTR at or below this reads fully AI
 STYLE_TTR_HUMAN = 0.9           # moving-average TTR at or above this reads fully human
 STYLE_PUNCT_HUMAN_RATE = 0.12   # clause punctuation per word at or above this reads fully human
