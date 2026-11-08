@@ -26,6 +26,7 @@ import os
 import statistics
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -44,24 +45,30 @@ COST_TEXT = _CAL["human_formal"][3]["text"] + " " + _CAL["human_formal"][4]["tex
 
 # ── Starting and stopping a real server ──────────────────────────────────────
 
-def start_server(port: int, env_extra: dict | None = None, timeout: float = 120.0):
+def start_server(port: int, env_extra: dict | None = None, timeout: float = 180.0):
     """
     Start `gunicorn app:app` on `port` and wait until /health answers.
 
     Returns (process, seconds from launch until /health first answered).
+    gunicorn's own output goes to a temp file, so a full pipe can never stall it.
     """
     env = dict(os.environ, PORT=str(port), HOST="127.0.0.1", **(env_extra or {}))
+    errfile = tempfile.TemporaryFile(mode="w+")
     t0 = time.perf_counter()
     proc = subprocess.Popen(
         [sys.executable, "-m", "gunicorn", "app:app"],
-        cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
+        cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=errfile, text=True,
     )
     url = f"http://127.0.0.1:{port}/health"
     while time.perf_counter() - t0 < timeout:
         if proc.poll() is not None:
-            raise RuntimeError(f"gunicorn exited early:\n{proc.stderr.read()}")
+            errfile.seek(0)
+            raise RuntimeError(f"gunicorn exited early:\n{errfile.read()}")
         try:
-            if requests.get(url, timeout=1).status_code == 200:
+            # A long read timeout: if the worker is busy (say, loading the
+            # model) the connection waits in the queue, and that wait is part
+            # of what's being measured.
+            if requests.get(url, timeout=(1, 120)).status_code == 200:
                 return proc, time.perf_counter() - t0
         except requests.RequestException:
             pass
