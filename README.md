@@ -878,6 +878,54 @@ the human side moved by +0.048.
      Do not delete and recreate this repository.
      ═════════════════════════════════════════════════════════════════════ -->
 
+<!-- ═══════════════════ UNIT 9 — DEPLOY AND INSTRUMENT ═══════════════════ -->
+
+---
+
+## Unit 9: Scope
+
+**Shape:** A, Deploy and Instrument.
+**Path:** B, Local with Logs.
+
+**Why Path B and not a free host.** The service loads `gpt2` into memory to
+score every submission. The weights are about 550 MB on disk, and `torch`
+adds a few hundred MB more on top. A typical free tier gives 512 MB of RAM and
+no persistent disk, so the service would be over budget before the first
+request and would re-download the model after every idle spin-down. I'd rather
+run it properly on my own machine than spend the unit fighting a host that
+can't hold it. (The measured memory use is in the Unit 9 run section below.)
+
+**What I'm building, exactly:**
+
+1. **A documented production-style run path.** The service runs under
+   `gunicorn` (already in `requirements.txt`, unused until now) with a small
+   `gunicorn.conf.py`, not Flask's development server. `RUNNING.md` gets exact
+   steps for a fresh checkout: Python version, install, model download, start
+   command, and how to check it's working.
+2. **A structured request log, `logs/requests.jsonl`.** One JSON line per HTTP
+   request to any route, written by `requestlog.py`. The audit log already
+   records *decisions* (scores, labels, appeals, rejections). What it can't
+   tell me is how the service is behaving as a service: how long each request
+   took, what status it returned, how big the input and output were, and what
+   went wrong when something failed. The request log adds only that:
+   timestamp, method, path, HTTP status, duration in ms, input size and text
+   length (never the text itself), output size and the key output fields, the
+   error code or exception when there is one, and whether the model was
+   already loaded (so cold and warm requests can be told apart).
+3. **A measured cost.** There's no paid API, so the cost is compute time per
+   request, measured from the request log over real runs, with cold start and
+   warm requests reported separately.
+
+**Out of scope:**
+
+- **Hosting anywhere public.** No cloud deploy, no Docker image, no HTTPS or
+  reverse proxy. The service still binds to loopback by default.
+- **Changing what the detector decides.** The signals, weights, thresholds,
+  labels and the appeal flow stay as Unit 8 left them. The audit log keeps its
+  exact schema; the request log is a separate file.
+- **A metrics stack or dashboard.** No Prometheus, no log shipping, no new
+  libraries. The request log is a plain JSONL file read with Python or `jq`.
+
 ---
 
 📖 **How to run this project: [RUNNING.md](RUNNING.md)**
