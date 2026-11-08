@@ -166,6 +166,8 @@ class RouteTests(unittest.TestCase):
         self.patches = [
             mock.patch.object(config, "AUDIT_LOG", self.log_path),
             mock.patch.object(config, "LOG_DIR", Path(self.tmp.name)),
+            # Unit 9: keep the request log out of logs/ too.
+            mock.patch.object(config, "REQUEST_LOG", Path(self.tmp.name) / "requests.jsonl"),
         ]
         for p in self.patches:
             p.start()
