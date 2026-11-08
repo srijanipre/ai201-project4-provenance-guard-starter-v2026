@@ -928,4 +928,124 @@ can't hold it. (The measured memory use is in the Unit 9 run section below.)
 
 ---
 
+## Unit 9: Running It and What the Logs Show
+
+### How it runs now
+
+`PORT=5050 gunicorn app:app`, with `gunicorn.conf.py` (one worker, 120 s
+timeout, bound to loopback). Exact steps for a fresh machine are in
+[RUNNING.md](RUNNING.md#unit-9-running-it-under-gunicorn-from-a-clean-checkout).
+Port 5000 on this Mac is held by AirPlay Receiver (and an old Unit 7 debug
+server), so everything below uses 5050.
+
+**Clean-checkout check.** I cloned the repo at `e069591` into an empty temp
+folder, made a new Python 3.13 venv and followed RUNNING.md's Unit 9 steps as
+written. `pip install -r requirements.txt` took 56 s (from pip's cache),
+`python test.py` passed 8 of 9 checks, then gunicorn started, `/health`
+answered and a `/submit` came back 200. The one failed check was free disk
+space on my laptop (the second copy of torch took it down to 1.5 GB free), not
+something in the instructions. I skipped step 2 because gpt2 was already in
+`~/.cache/huggingface`, so a first-ever run would also include the 550 MB
+download. Full output: `results/unit9_clean_checkout_2026-11-08.md`.
+
+### Request log entries
+
+From `logs/requests.jsonl`, one live session against gunicorn on 2026-11-08,
+written by `requestlog.py::build_entry`. The session sent 22 requests and the
+log has 22 lines; these 12 cover each kind (the full 22 are in the log file;
+the 10 empty-text flood requests before the 429 are left out here). In order:
+a health check, the ping control, a cold submission that had to load gpt2, a
+warm one, an appeal and an appeal on a made-up id, three refused submissions
+(whitespace text, a body that isn't JSON, text too short to score), the 11th
+request from one creator in a minute getting a 429, an unknown route, and a
+read of the audit log.
+
+```json
+{"timestamp": "2026-11-08T20:34:38.877+00:00", "method": "GET", "path": "/health", "status": 200, "duration_ms": 2.9, "in_bytes": 0, "in_text_chars": null, "creator_id": null, "out_bytes": 99, "content_id": null, "guess": null, "confidence": null, "error": null, "exception": null, "model_loaded": false}
+{"timestamp": "2026-11-08T20:34:38.896+00:00", "method": "POST", "path": "/ping", "status": 200, "duration_ms": 0.2, "in_bytes": 19, "in_text_chars": null, "creator_id": null, "out_bytes": 60, "content_id": null, "guess": null, "confidence": null, "error": null, "exception": null, "model_loaded": false}
+{"timestamp": "2026-11-08T20:34:38.910+00:00", "method": "POST", "path": "/submit", "status": 200, "duration_ms": 6924.9, "in_bytes": 227, "in_text_chars": 191, "creator_id": "m3_writer", "out_bytes": 340, "content_id": "666f5abf-640d-40aa-97a6-7ca2731faed2", "guess": "ai", "confidence": 0.7041, "error": null, "exception": null, "model_loaded": false}
+{"timestamp": "2026-11-08T20:34:45.859+00:00", "method": "POST", "path": "/submit", "status": 200, "duration_ms": 61.5, "in_bytes": 162, "in_text_chars": 125, "creator_id": "m3_writer2", "out_bytes": 288, "content_id": "163b8e7d-39b8-4495-bb88-6a499c4adfc9", "guess": "human", "confidence": 0.2358, "error": null, "exception": null, "model_loaded": true}
+{"timestamp": "2026-11-08T20:34:45.934+00:00", "method": "POST", "path": "/appeal", "status": 200, "duration_ms": 1.8, "in_bytes": 122, "in_text_chars": null, "creator_id": null, "out_bytes": 416, "content_id": "666f5abf-640d-40aa-97a6-7ca2731faed2", "guess": null, "confidence": null, "error": null, "exception": null, "model_loaded": true}
+{"timestamp": "2026-11-08T20:34:45.947+00:00", "method": "POST", "path": "/appeal", "status": 404, "duration_ms": 1.5, "in_bytes": 49, "in_text_chars": null, "creator_id": null, "out_bytes": 86, "content_id": "made-up-id", "guess": null, "confidence": null, "error": "content_not_found", "exception": null, "model_loaded": true}
+{"timestamp": "2026-11-08T20:34:45.960+00:00", "method": "POST", "path": "/submit", "status": 400, "duration_ms": 0.3, "in_bytes": 36, "in_text_chars": 3, "creator_id": "m3_bad", "out_bytes": 71, "content_id": null, "guess": null, "confidence": null, "error": "empty_text", "exception": null, "model_loaded": true}
+{"timestamp": "2026-11-08T20:34:45.971+00:00", "method": "POST", "path": "/submit", "status": 400, "duration_ms": 0.3, "in_bytes": 18, "in_text_chars": null, "creator_id": null, "out_bytes": 86, "content_id": null, "guess": null, "confidence": null, "error": "invalid_body", "exception": null, "model_loaded": true}
+{"timestamp": "2026-11-08T20:34:45.981+00:00", "method": "POST", "path": "/submit", "status": 422, "duration_ms": 0.4, "in_bytes": 37, "in_text_chars": 2, "creator_id": "m3_short", "out_bytes": 99, "content_id": null, "guess": null, "confidence": null, "error": "text_too_short", "exception": null, "model_loaded": true}
+{"timestamp": "2026-11-08T20:34:46.101+00:00", "method": "POST", "path": "/submit", "status": 429, "duration_ms": 0.3, "in_bytes": 35, "in_text_chars": 0, "creator_id": "m3_flood", "out_bytes": 104, "content_id": null, "guess": null, "confidence": null, "error": "rate_limited", "exception": null, "model_loaded": true}
+{"timestamp": "2026-11-08T20:34:46.112+00:00", "method": "GET", "path": "/does-not-exist", "status": 404, "duration_ms": 0.1, "in_bytes": 0, "in_text_chars": null, "creator_id": null, "out_bytes": 207, "content_id": null, "guess": null, "confidence": null, "error": "http_404", "exception": null, "model_loaded": true}
+{"timestamp": "2026-11-08T20:34:46.123+00:00", "method": "GET", "path": "/log", "status": 200, "duration_ms": 1.5, "in_bytes": 0, "in_text_chars": null, "creator_id": null, "out_bytes": 799, "content_id": null, "guess": null, "confidence": null, "error": null, "exception": null, "model_loaded": true}
+```
+
+What each line adds over the audit log:
+
+- `duration_ms` and `model_loaded`. The cold submission took 6924.9 ms with
+  `model_loaded: false`; the next one, 61.5 ms with `model_loaded: true`.
+  The audit log has no timing at all.
+- Requests the audit log never sees: `/ping`, `/health`, `/log`, the 404
+  route, and both `/appeal` refusals (the audit log deliberately writes nothing
+  for a bad appeal, because Unit 7's criterion 4 needs a 404 appeal to add no
+  lines). Now there is a trace of them.
+- The `error` code for every failure, matching what the caller got back, and
+  `exception` for an unhandled error (empty here, because nothing crashed; the
+  500 path is covered by `tests/test_requestlog.py`).
+- Input and output sizes. `in_text_chars` is the only thing recorded about the
+  text. The text itself isn't in this file.
+
+One thing the log showed that I hadn't thought about: the "too short" 422
+comes from inside `detector.perplexity`, after tokenizing. So on a cold server
+even a two-character submission waits for the whole model to load before it
+is refused.
+
+### What one request costs
+
+There's no paid API, so the cost is compute time. Measured with
+`measure_cost.py` on 2026-11-08 (`results/cost_2026-11-08_1434.md`), on my
+laptop (Apple M2, 8 GB RAM, CPU only, torch 2.14.1).
+
+**Method.** The script starts `gunicorn app:app` itself, so every cold start
+is a real new process. Each request sends the same 303-word passage (two
+formal calibration passages joined), which fills gpt2's 400-token window, so
+it's the most expensive ordinary submission. The number I use is
+`duration_ms` from the request log: the server's own wall-clock time, from
+before the rate limiter runs to after the response is built. The script also
+times the full round trip from the client (`client_ms`), which was 2 to 4 ms
+higher every time. Each warm request uses its own `creator_id` so the rate
+limiter never interferes.
+
+**Cold start** (fresh gunicorn each time, first `/submit`):
+
+| Trial | gunicorn answering `/health` | first `/submit` duration_ms |
+|---|---|---|
+| 1 | 0.18 s | 7579.0 |
+| 2 | 0.18 s | 2808.6 |
+| 3 | 0.13 s | 2674.6 |
+| clean checkout | not timed | 9808.8 |
+
+Trial 1 was slower because the model files weren't in the OS file cache yet.
+gunicorn is "up" within 0.2 s, but that only means it's listening. `/health`
+says `ok: true` with `detector_loaded: false`, and the first real user pays
+for loading torch and gpt2.
+
+**Warm requests** (10 runs, one server, after one uncounted warm-up request):
+
+| Run | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| duration_ms | 373.2 | 212.6 | 212.6 | 210.3 | 211.4 | 212.0 | 211.7 | 222.0 | 215.6 | 229.4 |
+
+- **Average: 231.1 ms, so about 0.23 s of compute per warm request.** Median
+  212.6 ms. Run 1 is the slow one at 373 ms. I don't know why from this
+  data; the other nine all land between 210 and 230 ms.
+- **CPU time:** the worker used 0.374 CPU-seconds per warm request (from
+  `ps`), more than the wall time, because torch scores on several cores at
+  once.
+- **Cold start: 2.7 to 9.8 s** for the first request, roughly 12 to 40 times a
+  warm one.
+- **Memory:** the worker is 36 MB before the model loads and 1088 MB after
+  (1116 MB after the ten runs). That's the number that rules out a 512 MB free
+  tier: the service needs about twice that just to hold the model.
+
+This is a preliminary measured cost for one request. The projection to
+100 users a day is left for Milestone 7.
+
+---
+
 📖 **How to run this project: [RUNNING.md](RUNNING.md)**

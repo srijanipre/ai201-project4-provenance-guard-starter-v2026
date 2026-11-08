@@ -105,6 +105,9 @@ position.**
 | `python run_attacks.py --set <folder>` | The attack set — **unit 8** |
 | `python run_attacks.py --flood 15` | Push past your rate limit and print the status codes — **unit 8** |
 | `python run_eval.py --label before` | Your five criteria, three trials — **unit 8** |
+| `PORT=5050 gunicorn app:app` | Runs the service under gunicorn — **unit 9** |
+| `python requestlog.py 20` | The last 20 lines of the request log — **unit 9** |
+| `python measure_cost.py` | Cold-start and warm timing per request — **unit 9** |
 
 ---
 
@@ -234,6 +237,110 @@ your write-up; that's the deliverable.
 
 ---
 
+## Unit 9: running it under gunicorn, from a clean checkout
+
+This is the path the Unit 9 extension uses (Shape A, Path B: local with logs).
+macOS and Linux commands. On Windows gunicorn doesn't run; use `python app.py`
+there, which writes the same request log.
+
+**What you need**
+
+| Thing | Version / size |
+|---|---|
+| Python | **3.13** (3.11 and 3.12 also work). **Not 3.14**: `test.py` refuses it and the pinned stack breaks |
+| Packages | `requirements.txt` (flask, flask-limiter, requests, transformers, torch, gunicorn, certifi) |
+| Model | `gpt2` from Hugging Face, about 550 MB, cached in `~/.cache/huggingface` after the first download |
+| Disk | about 9 GB free (torch is most of it) |
+| RAM | 4 GB or more. The single worker uses about 1 GB with the model loaded |
+
+Check which Python you have first. On a Mac `python3` is often 3.14 now
+(Homebrew or Anaconda), so name the version explicitly:
+
+```bash
+python3.13 --version        # must print 3.11.x, 3.12.x or 3.13.x
+```
+
+**1. Get the code and install**
+
+```bash
+git clone https://github.com/srijanipre/ai201-project4-provenance-guard-starter-v2026.git
+cd ai201-project4-provenance-guard-starter-v2026
+python3.13 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python test.py              # ready when it ends with no [FAIL]
+```
+
+**2. Download the model once**
+
+```bash
+python detector.py          # ~550 MB the first time; prints a perplexity and a score
+```
+
+If `test.py` already says the detector model is downloaded, skip this.
+
+**3. Start the service**
+
+```bash
+PORT=5050 gunicorn app:app
+```
+
+`gunicorn` reads `gunicorn.conf.py` from the project folder on its own: one
+worker, bound to `127.0.0.1:$PORT`, a 120 s worker timeout so a slow first model
+load isn't killed, and no text access log (the app writes its own). It prints
+`Listening at: http://127.0.0.1:5050` and `Booting worker with pid: ...`.
+Stop it with Ctrl-C.
+
+Any free port works. Port 5000 is taken by AirPlay Receiver on recent macOS,
+which is why these examples use 5050.
+
+**4. Check it works**
+
+In a second terminal (with the venv activated):
+
+```bash
+curl -s http://127.0.0.1:5050/health
+# {"detector_loaded":false,"detector_model":"gpt2","log_entries":...,"ok":true,"rate_limiting":true}
+
+curl -s -X POST http://127.0.0.1:5050/submit \
+  -H "Content-Type: application/json" \
+  -d '{"text": "I went to the store today. It was raining. I bought milk and bread.", "creator_id": "me"}'
+# 200 with content_id, guess, confidence, label, model_score, style_score
+
+python requestlog.py 2      # the last two lines of logs/requests.jsonl
+```
+
+The first `/submit` after a start is slow (it loads gpt2), and its request-log
+line says `"model_loaded": false`. Later ones are fast and say `true`.
+`detector_loaded` in `/health` turns `true` after that first submission.
+
+**5. Read the logs**
+
+| File | What's in it |
+|---|---|
+| `logs/audit.jsonl` | Decisions, appeals and rejected submissions. Same nine-field schema as Unit 8 |
+| `logs/requests.jsonl` | One line per HTTP request to any route: timestamp, method, path, status, duration_ms, input and output sizes, the text's length (never the text), guess and confidence, error code, exception, and whether the model was already loaded |
+
+```bash
+python requestlog.py 20                                   # last 20 request lines
+grep '"status": 5' logs/requests.jsonl                    # any server errors
+grep '"error": "rate_limited"' logs/requests.jsonl        # every 429
+```
+
+`AI201_REQUEST_LOG=/some/other/file.jsonl` sends the request log somewhere
+else for one run.
+
+**6. Measure the cost**
+
+```bash
+python measure_cost.py      # starts and stops gunicorn itself on port 5050
+```
+
+Three cold starts (fresh server each), then ten warm submissions of a
+~300-word text. Prints the timings and writes `results/cost_<date>.md`.
+
+---
+
 ## Where everything lives
 
 | File | What it does |
@@ -249,6 +356,10 @@ your write-up; that's the deliverable.
 | `scenarios.py` | What your test runs. **You fill this in** |
 | `criteria.md` | Your five criteria. **You write all five** |
 | `logs/audit.jsonl` | Your audit log. **Commit it** |
+| `requestlog.py` | Unit 9: writes `logs/requests.jsonl`, one line per HTTP request |
+| `gunicorn.conf.py` | Unit 9: gunicorn settings (one worker, 120 s timeout) |
+| `measure_cost.py` | Unit 9: times cold and warm requests against a real gunicorn |
+| `logs/requests.jsonl` | Unit 9: the request log. **Commit it** |
 | `results/` | Attack runs and run logs. **Commit them** |
 
 ---
