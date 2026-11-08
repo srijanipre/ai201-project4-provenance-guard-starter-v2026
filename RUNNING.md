@@ -286,10 +286,12 @@ PORT=5050 gunicorn app:app
 ```
 
 `gunicorn` reads `gunicorn.conf.py` from the project folder on its own: one
-worker, bound to `127.0.0.1:$PORT`, a 120 s worker timeout so a slow first model
-load isn't killed, and no text access log (the app writes its own). It prints
-`Listening at: http://127.0.0.1:5050` and `Booting worker with pid: ...`.
-Stop it with Ctrl-C.
+worker, bound to `127.0.0.1:$PORT`, a 120 s worker timeout so a slow model load
+isn't killed, and no text access log (the app writes its own). It prints
+`Listening at: http://127.0.0.1:5050` and `Booting worker with pid: ...`, then,
+a few seconds later, `Model warmed up in N s`: the worker loads gpt2 and scores
+one passage before it takes requests. Requests sent before that line wait
+rather than fail. Stop it with Ctrl-C.
 
 Any free port works. Port 5000 is taken by AirPlay Receiver on recent macOS,
 which is why these examples use 5050.
@@ -300,7 +302,7 @@ In a second terminal (with the venv activated):
 
 ```bash
 curl -s http://127.0.0.1:5050/health
-# {"detector_loaded":false,"detector_model":"gpt2","log_entries":...,"ok":true,"rate_limiting":true}
+# {"detector_loaded":true,"detector_model":"gpt2","log_entries":...,"ok":true,"rate_limiting":true}
 
 curl -s -X POST http://127.0.0.1:5050/submit \
   -H "Content-Type: application/json" \
@@ -310,9 +312,9 @@ curl -s -X POST http://127.0.0.1:5050/submit \
 python requestlog.py 2      # the last two lines of logs/requests.jsonl
 ```
 
-The first `/submit` after a start is slow (it loads gpt2), and its request-log
-line says `"model_loaded": false`. Later ones are fast and say `true`.
-`detector_loaded` in `/health` turns `true` after that first submission.
+Under gunicorn the model is already loaded, so every request-log line says
+`"model_loaded": true`. With `python app.py` there's no warm-up: the first
+`/submit` loads gpt2, takes several seconds, and its line says `false`.
 
 **5. Read the logs**
 
