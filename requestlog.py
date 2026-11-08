@@ -1,24 +1,23 @@
 """
-The request log. UNIT 9.
+request log (unit 9)
 
-One JSON line per HTTP request, to any route, in logs/requests.jsonl.
+writes one json line per http request (any route) to logs/requests.jsonl.
 
-This is not the audit log. audit.py records *decisions*: scores, labels,
-appeals and rejected submissions, with the nine fields Unit 8 grades. This file
-records how the service behaved as a service: how long each request took, what
-status it returned, how big the input and output were, and what went wrong
-when something failed. The two are kept apart so the audit log's schema never
-changes.
+this is NOT the audit log. audit.py has the decisions (scores, labels,
+appeals, rejections) with the 9 fields from unit 8. this one is more about
+how the service itself is doing - how long stuff took, what status went
+back, input/output size, and what broke if something broke. kept them
+seperate so the audit log schema doesnt change.
 
-The submitted text is never written here. Only its length is.
+never writes the submitted text, just how long it is.
 
     from requestlog import init_app
-    init_app(app)        # call right after app = Flask(...)
+    init_app(app)        # right after app = Flask(...)
 
-Read it back with:
+to read it:
 
-    python requestlog.py            # the last 10 lines
-    python requestlog.py 25         # the last 25
+    python requestlog.py            # last 10 lines
+    python requestlog.py 25         # last 25
 """
 
 import json
@@ -34,33 +33,32 @@ import detector
 
 _lock = threading.Lock()
 
-# Responses bigger than this aren't parsed for output fields. GET /log can be
-# hundreds of KB, and its size is all that's worth recording.
+# dont bother parsing responses bigger than this. GET /log can get huge and
+# the size is all we care about there anyway
 _MAX_PARSE_BYTES = 64 * 1024
 
 
 def init_app(app) -> None:
     """
-    Hook the request log into a Flask app.
+    hooks the request log into the app.
 
-    Call this before anything else registers a before_request hook (the rate
-    limiter does). Flask runs those hooks in order, and the timer has to start
-    first or a 429 from the limiter would have no start time.
+    has to be called before the rate limiter gets set up - flask runs
+    before_request hooks in order, so if the limiter goes first a 429 never
+    gets a start time.
     """
     app.before_request(_start)
     app.after_request(_finish)
 
 
 def note_exception(exc: BaseException) -> None:
-    """Remember an unhandled exception so the 500's log line can name it."""
+    """save the exception so the 500 line can say what it was"""
     g._reqlog_exception = exc
 
 
 def _start() -> None:
     g._reqlog_t0 = time.perf_counter()
     g._reqlog_ts = datetime.now(timezone.utc).isoformat(timespec="milliseconds")
-    # False on the request that has to load gpt2 first, which is how a cold
-    # request is told apart from a warm one.
+    # false = this request has to load gpt2 first (cold), true = warm
     g._reqlog_model_loaded = detector._model is not None
 
 
@@ -68,7 +66,7 @@ def _finish(response):
     try:
         write(build_entry(response))
     except Exception as exc:  # noqa: BLE001
-        # A logging failure must never turn a good response into a 500.
+        # if logging breaks, dont turn a good response into a 500
         print(f"[requestlog] could not write entry: {exc!r}", file=sys.stderr)
     return response
 
@@ -91,7 +89,7 @@ def build_entry(response) -> dict:
 
     error = body.get("error")
     if error is None and response.status_code >= 400:
-        # Flask's own 404 and 405 pages are HTML with no error key.
+        # flasks own 404/405 pages are html, no error key
         error = f"http_{response.status_code}"
 
     exc = g.get("_reqlog_exception")
@@ -125,7 +123,7 @@ def write(entry: dict) -> None:
 
 
 def read_entries(limit: int | None = None) -> list[dict]:
-    """Read the request log back, oldest first. Bad lines are skipped."""
+    """read the log back, oldest first. skips bad lines"""
     if not config.REQUEST_LOG.exists():
         return []
     entries = []

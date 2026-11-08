@@ -1,30 +1,28 @@
 """
-gunicorn settings for Provenance Guard. UNIT 9.
+gunicorn settings (unit 9)
 
-    gunicorn app:app            # picks this file up automatically
+    gunicorn app:app            # finds this file on its own
 
-Each choice below is about the model, not about web traffic.
+pretty much everything in here is because of the model, not traffic
 """
 
 import os
 
-# Same variables as `python app.py`, so the same curl commands work either way.
+# same HOST/PORT as python app.py so the curl commands still work
 bind = f"{os.getenv('HOST', '127.0.0.1')}:{os.getenv('PORT', '5000')}"
 
-# One worker. Every worker loads its own copy of gpt2 (the measured memory is
-# in the README), and the rate limiter keeps its counts in memory per process,
-# so two workers would both double the RAM and let each caller through twice.
+# only 1 worker. each worker loads its own gpt2 (~1.1gb, see readme) and the
+# rate limiter counts are in memory per process, so 2 workers = double the ram
+# AND everyone gets double the rate limit
 workers = 1
 threads = 1
 
-# The first request in a fresh worker loads gpt2 before it can score anything.
-# gunicorn's default 30 s timeout would kill the worker on a slow machine in
-# the middle of that load, so allow two minutes.
+# loading gpt2 can take a while on a slow laptop and the default 30s timeout
+# could kill the worker mid load, so 2 min
 timeout = 120
 
-# The app writes its own structured request log (logs/requests.jsonl), so
-# gunicorn's text access log would only repeat it. Errors and tracebacks still
-# go to the terminal.
+# no access log, requestlog.py already does that (logs/requests.jsonl).
+# errors/tracebacks still show up in the terminal
 accesslog = None
 errorlog = "-"
 loglevel = "info"
@@ -32,16 +30,16 @@ loglevel = "info"
 
 def post_worker_init(worker):
     """
-    Unit 9 improvement: warm the model before the worker takes any requests.
+    the unit 9 fix: warm up the model before the worker takes requests.
 
-    Without this, the first /submit after every start paid for loading gpt2
-    *and* for torch's slow first forward pass (about 3.5 s + 3.7 s measured
-    in-process), while /health already said "ok". Loading alone isn't enough,
-    so this scores one passage long enough to fill the 400-token window.
+    before this the first /submit after every restart had to load gpt2 AND do
+    torch's slow first forward pass (~3.5s + ~3.7s when i timed it), while
+    /health was already saying ok. just loading isnt enough, so this actually
+    scores a passage long enough to fill the 400 token window.
 
-    gunicorn is already listening while this runs, so early requests wait in
-    the queue instead of failing. If the model can't load, the worker still
-    starts and /submit answers 503 exactly as before.
+    gunicorn is already listening while this runs so early requests just wait
+    in the queue. if the model cant load the worker starts anyway and /submit
+    gives a 503 like before.
     """
     import json
     import time

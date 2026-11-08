@@ -1,10 +1,10 @@
 """
-Tests for the Unit 9 request log (requestlog.py).
+tests for the unit 9 request log (requestlog.py)
 
     python -m unittest discover -s tests -v
 
-Both logs are pointed at a temporary folder, so these never touch logs/.
-The model is mocked, so nothing here loads gpt2.
+both logs go to a temp folder so logs/ doesnt get touched, and the model is
+mocked so gpt2 never loads here
 """
 
 import json

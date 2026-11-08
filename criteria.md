@@ -166,95 +166,93 @@ show only real decisions.
 
 # Unit 9 criteria: Deploy and Instrument
 
-Written on 2026-11-08, **before** any of them was run as a formal test. The
-Unit 7 criteria above are unchanged.
+Wrote these on 2026-11-08, **before** running any of them as a real test. The
+unit 7 criteria above aren't touched.
 
-These were written after the Milestone 3 observation run, because that's the
-milestone order. So when I wrote them I already knew roughly what the service
-does: warm submissions take about 0.23 s, and the first one after a start took
-2.7 to 9.8 s. The targets come from what a writer or an operator needs, not
-from what the code already does.
+I wrote them after the milestone 3 run (thats just the milestone order), so I
+already kind of knew how the service behaves: warm submits take about 0.23 s,
+and the first one after a start took 2.7 to 9.8 s. The targets come from what a
+writer or whoever runs this actually needs, not from what the code already
+manages to do.
 
-**How every trial runs.** Each trial starts its own fresh
-`gunicorn app:app` (with `gunicorn.conf.py`) on port 5050, with the request log
-pointed at a file of its own, and stops it afterwards. So the three trials are
-independent, the rate limiter starts empty each time, and the model is never
-already loaded at the start of a trial. The code is not changed between the
-three trials of a run.
+**How every trial runs:** each trial starts its own fresh `gunicorn app:app`
+(with `gunicorn.conf.py`) on port 5050, points the request log at its own file,
+and kills the server after. So the three trials are independant, the rate
+limiter starts empty every time, and the model is never already loaded when a
+trial starts. No code changes between the three trials of a run.
 
-Criteria U9-1 to U9-4 test the new extension directly. U9-2 is the failure and
-rejection criterion. U9-5 checks that the extension didn't break what Unit 8
-built.
+U9-1 to U9-4 test the new stuff directly. U9-2 is the failure / rejection one.
+U9-5 checks I didnt break anything from unit 8.
 
 ---
 
 ## U9-1. Every request leaves exactly one complete request-log line
 
-A fixed batch of **20** requests of every kind the service answers: `/ping`,
-`/health` twice, 10 valid submissions (each with its own `creator_id`), an
-appeal, a repeat appeal (409), an appeal on a made-up id (404), two `/log`
-reads, a submission whose body isn't JSON (400), and a request to a route that
-doesn't exist (404).
+A fixed batch of **20** requests covering everything the service answers:
+`/ping`, `/health` twice, 10 valid submits (each with its own `creator_id`), an
+appeal, a repeat appeal (409), an appeal on a made up id (404), two `/log`
+reads, a submit where the body isnt JSON (400), and a route that doesnt exist
+(404).
 
-Target, in each of three trials: the request log gains **exactly 20 lines**, in
-the same order as the requests (method and path match), and **20 of 20** have
-all 15 fields, a `status` equal to the status the client actually received,
-and a numeric `duration_ms` of 0 or more. And **0** lines contain the first 30
-characters of any submitted text.
+Target, in each of three trials: the request log gets **exactly 20 new lines**,
+in the same order as the requests (method and path match), and **20 of 20**
+have all 15 fields, a `status` that matches what the client actually got, and
+a numeric `duration_ms` thats 0 or more. Plus **0** lines contain the first 30
+characters of any text that was submitted.
 
-**Why this target:** A request log with gaps is worse than none, because you
-read the gaps as "nothing happened". It has to be one line per request with no
-exceptions, or counting requests, errors or slow calls from it is wrong. The
-text check is there because the log is meant to describe requests without
-copying people's writing into a second file.
+**Why this target:** a request log with gaps is honestly worse than no log,
+because you read the gaps as "nothing happened". It has to be one line per
+request, no exceptions, or counting requests / errors / slow calls from it is
+just wrong. The text check is because the log is supposed to describe requests,
+not copy peoples writing into a second file.
 
 ---
 
 ## U9-2. Every refused request says why (failure and rejection)
 
-A fixed batch of **22** requests that should all be refused: the 8 malformed
-submissions from Unit 7 criterion 5 (empty, whitespace, missing `text`, null,
-a number, missing `creator_id`, over 10,000 characters, not JSON), a text too
-short to score (422), an appeal on a made-up id (404), a route that doesn't
-exist (404), and 11 empty-text submissions from one `creator_id` in a row (ten
-400s, then the eleventh is over the 10-a-minute limit and gets a 429).
+A fixed batch of **22** requests that should all get refused: the 8 malformed
+submits from unit 7 criterion 5 (empty, whitespace, missing `text`, null, a
+number, missing `creator_id`, over 10,000 characters, not JSON), a text thats
+too short to score (422), an appeal on a made up id (404), a route that doesnt
+exist (404), and 11 empty-text submits in a row from one `creator_id` (ten 400s,
+then the 11th goes over the 10-a-minute limit and gets a 429).
 
 Target, in each of three trials: **22 of 22** new log lines have a `status`
-equal to what the client received, and a non-null `error` equal to the
-`error` code in the response body (for the unknown route, which returns
-Flask's HTML 404, the log must say `http_404`). The 429 line must say
-`rate_limited`. **0** lines with a 5xx status.
+that matches what the client got, and a non-null `error` that matches the
+`error` code in the response body (for the unknown route, which gives back
+Flask's HTML 404, the log has to say `http_404`). The 429 line has to say
+`rate_limited`. **0** lines with a 5xx.
 
-**Why this target:** When something goes wrong the first question is always
-"why", and the answer has to be in the log, not reconstructed from memory.
-Only matching the exact code the caller saw counts, so a log line that just
-says "400" fails. The 429 is in there because Unit 8 showed that rejected
-traffic is exactly what disappears if nobody records it.
+**Why this target:** when something breaks the first question is always "why",
+and that answer needs to be in the log, not me trying to remember. It only
+counts if it matches the exact code the caller saw, so a line that just says
+"400" fails. The 429 is in here because unit 8 showed rejected traffic is
+exactly the stuff that vanishes if nobody writes it down.
 
 ---
 
 ## U9-3. Warm requests stay cheap, and the logged time is honest
 
-On a server that has already handled one submission, **10** submissions of the
-same 303-word passage `measure_cost.py` uses (it fills gpt2's 400-token
-window), each with its own `creator_id`.
+On a server thats already handled one submit, **10** submits of the same
+303-word passage `measure_cost.py` uses (it fills gpt2's 400-token window),
+each with its own `creator_id`.
 
 > **Wording correction (documentation only, added after the runs):** the
 > passage is 365 gpt2 tokens, so it comes close to the 400-token window but
-> doesn't fill it (`results/unit9_diagnostic_2026-11-08.md`). The passage, the
+> doesnt fill it (`results/unit9_diagnostic_2026-11-08.md`). The passage, the
 > procedure and the targets are unchanged.
 
 Target, in each of three trials: mean `duration_ms` from the request log
 **≤ 300 ms**, every single one **≤ 500 ms**, and every logged `duration_ms`
 **within 15 ms** of the round trip the client measured.
 
-**Why this target:** 300 ms is the compute budget per request. Milestone 3
-measured about 231 ms, so there is room for normal noise, but something like
-reloading the tokenizer on each call would break it. The 500 ms cap catches a
-single slow request hiding in a good average. The 15 ms check is about the
-instrumentation, not the model: if the timer started late or stopped early,
-the logged time would fall well short of what the client waited. On loopback
-the honest difference is a few ms.
+**Why this target:** 300 ms is my compute budget per request. Milestone 3 got
+about 231 ms so theres room for normal noise, but something dumb like reloading
+the tokenizer every call would blow past it. The 500 ms cap is so one really
+slow request cant hide inside a good average. The 15 ms part is about the
+logging, not the model: if the timer started late or stopped early, the logged
+time would come out way shorter than what the client actually waited. On
+loopback the real difference should only be a few ms.
 
 ---
 
@@ -263,36 +261,36 @@ the honest difference is a few ms.
 Start a fresh gunicorn. As soon as `/health` first answers 200, send one
 `/submit` with the 303-word passage.
 
-Target, in each of three trials (three fresh starts): that submission's client
-round trip is **≤ 1.0 s**. The time from launch until `/health` first answered
-is recorded too, with no target, so any trade-off is visible.
+Target, in each of three trials (three fresh starts): that submit's round trip
+from the client is **≤ 1.0 s**. I also record how long it took from launch to
+`/health` first answering, with no target, so if theres a tradeoff it shows up.
 
-**Why this target:** Every restart (a crash, a code change, a laptop reboot)
-makes the next writer wait for torch and gpt2 to load: 2.7 to 9.8 s in
-Milestone 3, 12 to 40 times a warm request. With one worker, anyone who
-arrives behind them waits too. And `/health` says `"ok": true` during all of
-that, so a check that trusts it is told the service is ready when it can't
-score anything yet. 1.0 s is about four warm requests, which leaves room for
-normal variation but not for a model load.
+**Why this target:** every restart (a crash, a code change, rebooting my
+laptop) makes the next writer wait for torch and gpt2 to load: 2.7 to 9.8 s in
+milestone 3, so 12 to 40x a warm request. And theres only one worker, so anyone
+who shows up behind them waits too. Meanwhile `/health` says `"ok": true` the
+whole time, so anything checking it gets told the service is ready when it
+cant actually score anything yet. 1.0 s is about four warm requests, enough
+room for normal variation but not for loading a model.
 
 ---
 
 ## U9-5. Unit 8 behaviour is unchanged under gunicorn
 
 With gunicorn and the request log running, one pass of
-`python run_eval.py --trials 1` (the Unit 8 criteria, unchanged), plus the
+`python run_eval.py --trials 1` (the unit 8 criteria, not changed), plus the
 unit tests.
 
-Target, in each of three trials: the same results as the Unit 8 after run.
-Unit 7 criteria 1, 3, 4 and 5 held, and criterion 2's gap exactly **0.201**
-(it was missed in Unit 8; it should stay the same, not move either way). Every
-audit-log line the pass adds has exactly the Unit 8 key set for its kind: the
-nine fields for a decision, nine plus `event` and `reasoning` for an appeal,
-nine plus `event`, `reason`, `http_status` (and `limit` on a 429) for a
-rejection. And `python -m unittest discover -s tests` passes **all** tests.
+Target, in each of three trials: same results as the unit 8 after run. Unit 7
+criteria 1, 3, 4 and 5 held, and criterion 2's gap exactly **0.201** (it missed
+in unit 8, it should stay the same, not move either way). Every audit-log line
+the pass adds has exactly the unit 8 keys for its kind: the nine fields for a
+decision, nine plus `event` and `reasoning` for an appeal, nine plus `event`,
+`reason`, `http_status` (and `limit` on a 429) for a rejection. And
+`python -m unittest discover -s tests` passes **all** the tests.
 
-**Why this target:** The extension is supposed to watch the service, not
-change it. If a scoring number moved, or the audit log gained or lost a field,
-then Unit 8's evidence would no longer describe the running service. The gap
-is an exact match because scoring is deterministic on this machine (Unit 8's
-three trials were identical to four decimal places).
+**Why this target:** the whole point of the extension is to watch the service,
+not change it. If a score moved, or the audit log gained or lost a field, then
+all my unit 8 evidence wouldnt describe the service thats actually running
+anymore. The gap has to match exactly because scoring is deterministic on this
+machine (unit 8's three trials were identical to four decimal places).

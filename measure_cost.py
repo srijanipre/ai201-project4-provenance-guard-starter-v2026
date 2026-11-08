@@ -1,22 +1,19 @@
 #!/usr/bin/env python3
 """
-Measure what one request costs to run. UNIT 9, MILESTONE 3.
+how much does one request cost? (unit 9, milestone 3)
 
-There's no paid API here, so the cost is compute: seconds of server time per
-/submit. This starts the service under gunicorn itself, so every cold start is
-a real fresh process.
+no paid api so "cost" = compute time, seconds of server time per /submit.
+starts gunicorn itself so every cold start is actually a fresh process.
 
-    python measure_cost.py                 # 3 cold starts, then 10 warm requests
+    python measure_cost.py                 # 3 cold starts then 10 warm requests
     python measure_cost.py --cold 3 --warm 10 --port 5050
 
-Two numbers per request:
-  - duration_ms: the server's own timing, read back from the request log
-    (requestlog.py). Starts before the rate limiter, ends after the response
-    is built.
-  - client_ms: the round trip measured here, around requests.post.
+two numbers per request:
+  - duration_ms: the servers own timing from the request log
+  - client_ms: round trip timed here around requests.post
 
-Writes results/cost_<date>.md. The request-log lines it reads are the real
-ones in logs/requests.jsonl (or AI201_REQUEST_LOG, if set).
+writes results/cost_<date>.md. reads the real request log
+(logs/requests.jsonl, or AI201_REQUEST_LOG if its set).
 """
 
 import argparse
@@ -36,9 +33,9 @@ import config
 
 ROOT = Path(__file__).resolve().parent
 
-# 303 words: two formal calibration passages joined. That's 365 gpt2 tokens,
-# close to the 400-token window (config.DETECTOR_MAX_TOKENS), so it's near the
-# most expensive ordinary submission. Shorter text is cheaper.
+# 303 words, two of the formal calibration passages stuck together. 365 gpt2
+# tokens so its close to the 400 token window = near the most expensive normal
+# submit. shorter text is cheaper
 _CAL = json.loads((ROOT / "samples" / "calibration.json").read_text(encoding="utf-8"))
 COST_TEXT = _CAL["human_formal"][3]["text"] + " " + _CAL["human_formal"][4]["text"]
 
@@ -47,10 +44,10 @@ COST_TEXT = _CAL["human_formal"][3]["text"] + " " + _CAL["human_formal"][4]["tex
 
 def start_server(port: int, env_extra: dict | None = None, timeout: float = 180.0):
     """
-    Start `gunicorn app:app` on `port` and wait until /health answers.
+    starts gunicorn on `port` and waits for /health.
 
-    Returns (process, seconds from launch until /health first answered).
-    gunicorn's own output goes to a temp file, so a full pipe can never stall it.
+    returns (process, seconds from launch until /health answered). gunicorns
+    output goes to a temp file so a full pipe cant freeze it
     """
     env = dict(os.environ, PORT=str(port), HOST="127.0.0.1", **(env_extra or {}))
     errfile = tempfile.TemporaryFile(mode="w+")
@@ -65,9 +62,8 @@ def start_server(port: int, env_extra: dict | None = None, timeout: float = 180.
             errfile.seek(0)
             raise RuntimeError(f"gunicorn exited early:\n{errfile.read()}")
         try:
-            # A long read timeout: if the worker is busy (say, loading the
-            # model) the connection waits in the queue, and that wait is part
-            # of what's being measured.
+            # long timeout on purpose - if the worker is busy loading the model
+            # the request just waits in the queue and that wait counts
             if requests.get(url, timeout=(1, 120)).status_code == 200:
                 return proc, time.perf_counter() - t0
         except requests.RequestException:
@@ -97,7 +93,7 @@ def rss_mb(pid: int) -> float:
 
 
 def cpu_seconds(pid: int) -> float:
-    """Total CPU time (all threads) a process has used, from `ps -o time=`."""
+    """total cpu time (all threads) for a process, from ps"""
     raw = subprocess.run(["ps", "-o", "time=", "-p", str(pid)], capture_output=True, text=True).stdout.strip()
     parts = [float(p) for p in raw.split(":")]
     secs = 0.0
@@ -162,7 +158,7 @@ def main():
     try:
         wpid = worker_pid(proc.pid)
         rss_idle = rss_mb(wpid)
-        timed_submit(base, f"cost_warmup_{stamp}")          # loads the model; not counted
+        timed_submit(base, f"cost_warmup_{stamp}")          # loads the model, doesnt count
         rss_loaded = rss_mb(wpid)
         offset = log_size()
         cpu0 = cpu_seconds(wpid)

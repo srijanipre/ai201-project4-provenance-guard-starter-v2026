@@ -126,8 +126,7 @@ LOG_DIR = ROOT / "logs"
 AUDIT_LOG = LOG_DIR / "audit.jsonl"
 RESULTS_DIR = ROOT / "results"
 
-# Unit 9: one line per HTTP request (requestlog.py). Separate from the audit
-# log so the audit log's nine-field schema doesn't change. AI201_REQUEST_LOG
-# points it somewhere else, which the Unit 9 test runs use to keep each run's
-# lines in their own file.
+# unit 9: request log, one line per request (requestlog.py). its own file so
+# the audit log keeps its 9 fields. AI201_REQUEST_LOG moves it somewhere else,
+# the unit 9 test runs use that so each run gets its own file
 REQUEST_LOG = Path(os.getenv("AI201_REQUEST_LOG", str(LOG_DIR / "requests.jsonl")))

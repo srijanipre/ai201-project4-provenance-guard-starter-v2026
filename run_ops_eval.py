@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
 """
-Run the five Unit 9 criteria (criteria.md, "Unit 9 criteria") three times each.
+runs the 5 unit 9 criteria (criteria.md) 3 times each
 
     python run_ops_eval.py --label before
-    python run_ops_eval.py --label before --only 4      # one criterion
+    python run_ops_eval.py --label before --only 4      # just one
 
-Every trial starts its own fresh `gunicorn app:app` on --port (default 5050)
-and stops it afterwards, so trials are independent: the rate limiter starts
-empty and the model is never already loaded. The request log for a whole run
-goes to logs/requests_unit9_<label>.jsonl; each trial reads only the lines it
-added.
+each trial starts a fresh gunicorn on --port (5050 default) and kills it
+after, so trials dont affect each other (rate limiter starts empty, model
+not loaded yet). whole run logs to logs/requests_unit9_<label>.jsonl and each
+trial only looks at the lines it added.
 
-Writes results/unit9_<label>_<date>.md with the table, every trial's measured
-values, and the request-log lines each check looked at.
+writes results/unit9_<label>_<date>.md with the table + all the numbers + the
+log lines each check used
 """
 
 import argparse
@@ -41,7 +40,7 @@ NINE = {"timestamp", "content_id", "creator_id", "guess", "model_score",
 
 
 class Server:
-    """A fresh gunicorn for one trial, with a client that remembers what it got back."""
+    """fresh gunicorn for one trial + a client that remembers what came back"""
 
     def __init__(self, port: int, req_log: Path):
         self.port, self.req_log = port, req_log
@@ -50,8 +49,7 @@ class Server:
     def __enter__(self):
         self.offset = self.req_log.stat().st_size if self.req_log.exists() else 0
         self.proc, self.ready_s = start_server(self.port, {"AI201_REQUEST_LOG": str(self.req_log)})
-        # start_server's /health poll leaves one line; checks only count what
-        # the trial itself sends, so skip past it.
+        # the /health poll from start_server leaves a line, skip it
         self.offset = self.req_log.stat().st_size
         return self
 
@@ -171,7 +169,7 @@ def criterion_2(srv: Server, tag: str) -> dict:
 
 def criterion_3(srv: Server, tag: str) -> dict:
     srv.send("POST", "/submit", {"text": COST_TEXT, "creator_id": f"u9c3_{tag}_warmup"})
-    srv.offset = srv.req_log.stat().st_size      # the warm-up isn't counted
+    srv.offset = srv.req_log.stat().st_size      # warm-up doesnt count
     sent = [srv.send("POST", "/submit", {"text": COST_TEXT, "creator_id": f"u9c3_{tag}_{i}"})
             for i in range(10)]
     lines = srv.new_lines()

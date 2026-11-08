@@ -37,9 +37,8 @@ import stylometry
 
 app = Flask(__name__)
 
-# Unit 9: one line per request in logs/requests.jsonl (requestlog.py). This has
-# to come before the rate limiter below, so the timer starts before the limiter
-# can refuse a request with a 429.
+# unit 9: request log (requestlog.py). needs to be before the rate limiter so
+# the timer starts before a 429 can happen
 requestlog.init_app(app)
 
 
@@ -301,9 +300,9 @@ def appeal():
 @app.errorhandler(500)
 def internal_error(exc):
     """
-    Unit 9: an unhandled exception becomes a JSON 500, and the request log
-    records which exception it was. Without this the caller gets an HTML page
-    and the log only knows "500".
+    unit 9: crashes come back as a json 500 and the request log gets the
+    exception. otherwise you just get flasks html page and the log only
+    knows "500"
     """
     requestlog.note_exception(getattr(exc, "original_exception", None) or exc)
     return _json_error(500, "internal_error", "Something went wrong on our side. It has been logged.")
