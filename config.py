@@ -125,3 +125,9 @@ RATE_LIMIT_STORAGE = "memory://"
 LOG_DIR = ROOT / "logs"
 AUDIT_LOG = LOG_DIR / "audit.jsonl"
 RESULTS_DIR = ROOT / "results"
+
+# Unit 9: one line per HTTP request (requestlog.py). Separate from the audit
+# log so the audit log's nine-field schema doesn't change. AI201_REQUEST_LOG
+# points it somewhere else, which the Unit 9 test runs use to keep each run's
+# lines in their own file.
+REQUEST_LOG = Path(os.getenv("AI201_REQUEST_LOG", str(LOG_DIR / "requests.jsonl")))
