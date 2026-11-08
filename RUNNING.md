@@ -105,9 +105,9 @@ position.**
 | `python run_attacks.py --set <folder>` | The attack set — **unit 8** |
 | `python run_attacks.py --flood 15` | Push past your rate limit and print the status codes — **unit 8** |
 | `python run_eval.py --label before` | Your five criteria, three trials — **unit 8** |
-| `PORT=5050 gunicorn app:app` | Runs the service under gunicorn — **unit 9** |
-| `python requestlog.py 20` | The last 20 lines of the request log — **unit 9** |
-| `python measure_cost.py` | Cold-start and warm timing per request — **unit 9** |
+| `PORT=5050 gunicorn app:app` | Runs the service under gunicorn (**unit 9**) |
+| `python requestlog.py 20` | The last 20 lines of the request log (**unit 9**) |
+| `python measure_cost.py` | Cold-start and warm timing per request (**unit 9**) |
 
 ---
 
@@ -339,7 +339,7 @@ python measure_cost.py      # starts and stops gunicorn itself on port 5050
 ```
 
 Three cold starts (fresh server each), then ten warm submissions of a
-~300-word text. Prints the timings and writes `results/cost_<date>.md`.
+303-word text (365 tokens). Prints the timings and writes `results/cost_<date>.md`.
 
 ---
 

@@ -36,9 +36,9 @@ import config
 
 ROOT = Path(__file__).resolve().parent
 
-# About 300 words: two formal calibration passages joined. That fills gpt2's
-# 400-token window (config.DETECTOR_MAX_TOKENS), so it's the most expensive
-# ordinary submission. Shorter text is cheaper.
+# 303 words: two formal calibration passages joined. That's 365 gpt2 tokens,
+# close to the 400-token window (config.DETECTOR_MAX_TOKENS), so it's near the
+# most expensive ordinary submission. Shorter text is cheaper.
 _CAL = json.loads((ROOT / "samples" / "calibration.json").read_text(encoding="utf-8"))
 COST_TEXT = _CAL["human_formal"][3]["text"] + " " + _CAL["human_formal"][4]["text"]
 
@@ -205,7 +205,7 @@ def main():
     path = config.RESULTS_DIR / f"cost_{stamp}.md"
     out = [f"# Cost measurement, {stamp}", "",
            "- Produced by: `measure_cost.py::main`, server `gunicorn app:app` (gunicorn.conf.py)",
-           f"- Text: {summary['text_words']} words, fills the 400-token window",
+           f"- Text: {summary['text_words']} words (365 gpt2 tokens; the window is 400)",
            "- duration_ms is the server's own timing from the request log; client_ms is the round trip", "",
            "## Summary", "", "```json", json.dumps(summary, indent=2), "```", "",
            "## Cold starts (fresh gunicorn each)", "",

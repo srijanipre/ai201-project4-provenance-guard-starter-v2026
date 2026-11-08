@@ -239,6 +239,11 @@ On a server that has already handled one submission, **10** submissions of the
 same 303-word passage `measure_cost.py` uses (it fills gpt2's 400-token
 window), each with its own `creator_id`.
 
+> **Wording correction (documentation only, added after the runs):** the
+> passage is 365 gpt2 tokens, so it comes close to the 400-token window but
+> doesn't fill it (`results/unit9_diagnostic_2026-11-08.md`). The passage, the
+> procedure and the targets are unchanged.
+
 Target, in each of three trials: mean `duration_ms` from the request log
 **≤ 300 ms**, every single one **≤ 500 ms**, and every logged `duration_ms`
 **within 15 ms** of the round trip the client measured.

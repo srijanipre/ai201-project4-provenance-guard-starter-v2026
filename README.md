@@ -878,7 +878,7 @@ the human side moved by +0.048.
      Do not delete and recreate this repository.
      ═════════════════════════════════════════════════════════════════════ -->
 
-<!-- ═══════════════════ UNIT 9 — DEPLOY AND INSTRUMENT ═══════════════════ -->
+<!-- ═══════════════════ UNIT 9: DEPLOY AND INSTRUMENT ═══════════════════ -->
 
 ---
 
@@ -1003,8 +1003,10 @@ laptop (Apple M2, 8 GB RAM, CPU only, torch 2.14.1).
 
 **Method.** The script starts `gunicorn app:app` itself, so every cold start
 is a real new process. Each request sends the same 303-word passage (two
-formal calibration passages joined), which fills gpt2's 400-token window, so
-it's the most expensive ordinary submission. The number I use is
+formal calibration passages joined). That's 365 gpt2 tokens, close to the
+400-token window gpt2 reads, so it's near the most expensive ordinary
+submission. (I first wrote that it fills the window; the token count in
+`results/unit9_diagnostic_2026-11-08.md` corrected that.) The number I use is
 `duration_ms` from the request log: the server's own wall-clock time, from
 before the rate limiter runs to after the response is built. The script also
 times the full round trip from the client (`client_ms`), which was 2 to 4 ms
@@ -1045,6 +1047,294 @@ for loading torch and gpt2.
 
 This is a preliminary measured cost for one request. The projection to
 100 users a day is left for Milestone 7.
+
+---
+
+## Unit 9: Criteria Results, Before
+
+The five criteria are in `criteria.md` under "Unit 9 criteria", committed in
+`c4bb4df` before any test code or results existed. They were run by
+`run_ops_eval.py` (one function per criterion, `criterion_1` to
+`criterion_5`), three trials each. Every trial starts its own fresh
+`gunicorn app:app` and stops it afterwards, and nothing in the code changed
+between trials.
+
+Results file: `results/unit9_before_2026-11-08_1441.md`, with the request-log
+lines for the run in `logs/requests_unit9_before.jsonl`. The code under test
+was commit `3a74586`. (A one-trial shakedown of the harness itself, run before
+this and not counted, is in `results/unit9_harness-check_2026-11-08_1439.md`.)
+
+> **A note on commit order:** I committed the improvement (`3da0ba3`) before
+> committing these before-results (`aa8c5ed`). The results were produced at
+> 14:41 on code `3a74586`, before the improvement existed (the warm-up was
+> first started at 14:42). I left the history as it is rather than rewrite it.
+
+| Criterion | Target | Trial 1 | Trial 2 | Trial 3 | Verdict |
+|---|---|---|---|---|---|
+| U9-1. One complete log line per request | 20 lines, 20/20 complete and matching, 0 text leaks | 20, 20/20, 0 | 20, 20/20, 0 | 20, 20/20, 0 | **MET** |
+| U9-2. Every refused request says why | 22/22 status and error match, 0 5xx, 429 logged | 22/22, 0, yes | 22/22, 0, yes | 22/22, 0, yes | **MET** |
+| U9-3. Warm requests cheap, logged time honest | mean ≤ 300 ms, max ≤ 500 ms, gap ≤ 15 ms | mean 384.0, max 858.5, gap 10.7 | mean 265.2, max 409.5, gap 2.9 | mean 247.4, max 271.5, gap 2.5 | **MISSED** |
+| U9-4. First request after a start isn't cold | first `/submit` ≤ 1.0 s | 2579.0 ms | 2567.6 ms | 2540.8 ms | **MISSED** |
+| U9-5. Unit 8 behaviour unchanged | c1/3/4/5 held, gap 0.201, audit shapes, all tests | yes, 0.201, 62/62, 33 OK | yes, 0.201, 62/62, 33 OK | yes, 0.201, 62/62, 33 OK | **MET** |
+
+A verdict is MET only if all three trials hit the original target.
+
+**Supporting output** (all from `results/unit9_before_2026-11-08_1441.md`)
+
+*U9-1* (`run_ops_eval.py::criterion_1`, trial 1): the status the client got
+for each of the 20 requests, and the status in each of the 20 new log lines.
+
+```
+client: [200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 409, 404, 200, 200, 400, 404, 200]
+log:    [200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 409, 404, 200, 200, 400, 404, 200]
+```
+
+*U9-2* (`run_ops_eval.py::criterion_2`, trial 1): the flood went
+`[400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 429]`, and six of the 22
+request-log lines:
+
+```json
+{"timestamp": "2026-11-08T20:39:51.974+00:00", "method": "POST", "path": "/submit", "status": 413, "duration_ms": 0.2, "in_bytes": 12543, "in_text_chars": 12500, "creator_id": "eval_bad_huge", "out_bytes": 86, "content_id": null, "guess": null, "confidence": null, "error": "text_too_long", "exception": null, "model_loaded": false}
+{"timestamp": "2026-11-08T20:39:51.976+00:00", "method": "POST", "path": "/submit", "status": 400, "duration_ms": 0.2, "in_bytes": 18, "in_text_chars": null, "creator_id": null, "out_bytes": 86, "content_id": null, "guess": null, "confidence": null, "error": "invalid_body", "exception": null, "model_loaded": false}
+{"timestamp": "2026-11-08T20:39:51.977+00:00", "method": "POST", "path": "/submit", "status": 422, "duration_ms": 2747.6, "in_bytes": 52, "in_text_chars": 2, "creator_id": "u9c2_before_t1_short", "out_bytes": 99, "content_id": null, "guess": null, "confidence": null, "error": "text_too_short", "exception": null, "model_loaded": false}
+{"timestamp": "2026-11-08T20:39:54.728+00:00", "method": "POST", "path": "/appeal", "status": 404, "duration_ms": 3.4, "in_bytes": 53, "in_text_chars": null, "creator_id": null, "out_bytes": 86, "content_id": "no-such-id", "guess": null, "confidence": null, "error": "content_not_found", "exception": null, "model_loaded": true}
+{"timestamp": "2026-11-08T20:39:54.733+00:00", "method": "GET", "path": "/no-such-route", "status": 404, "duration_ms": 0.2, "in_bytes": 0, "in_text_chars": null, "creator_id": null, "out_bytes": 207, "content_id": null, "guess": null, "confidence": null, "error": "http_404", "exception": null, "model_loaded": true}
+{"timestamp": "2026-11-08T20:39:54.754+00:00", "method": "POST", "path": "/submit", "status": 429, "duration_ms": 0.3, "in_bytes": 50, "in_text_chars": 0, "creator_id": "u9c2_before_t1_flood", "out_bytes": 104, "content_id": null, "guess": null, "confidence": null, "error": "rate_limited", "exception": null, "model_loaded": true}
+```
+
+*U9-3* (`run_ops_eval.py::criterion_3`): the ten logged `duration_ms` values
+per trial, after one uncounted warm-up.
+
+```
+trial 1: [858.5, 282.0, 242.4, 305.3, 272.9, 537.1, 586.2, 272.4, 249.3, 234.3]   client minus log: 2.2 to 10.7 ms
+trial 2: [409.5, 241.5, 281.5, 254.6, 247.3, 246.5, 242.1, 241.6, 243.1, 244.2]   client minus log: 2.0 to 2.9 ms
+trial 3: [262.8, 244.0, 242.6, 241.8, 241.6, 242.4, 240.2, 242.5, 271.5, 244.4]   client minus log: 2.3 to 2.5 ms
+```
+
+*U9-4* (`run_ops_eval.py::criterion_4`, trial 1): `/health` answered 0.14 s
+after launch, then this was the first submission.
+
+```json
+{"timestamp": "2026-11-08T20:40:27.279+00:00", "method": "POST", "path": "/submit", "status": 200, "duration_ms": 2576.5, "in_bytes": 1826, "in_text_chars": 1762, "creator_id": "u9c4_before_t1", "out_bytes": 347, "content_id": "82a5c27f-c7da-4d0c-a340-1a65dbbbda92", "guess": "unsure", "confidence": 0.4236, "error": null, "exception": null, "model_loaded": false}
+```
+
+*U9-5* (`run_ops_eval.py::criterion_5`, trial 1): `run_eval.py` wrote
+`results/run_2026-11-08_1440_unit9_before_t1.md`.
+
+```json
+{
+  "value": "c1/3/4/5 held: [True, True, True, True], gap 0.201, 62/62 audit lines right shape, tests OK (33)",
+  "passed": true,
+  "run_eval_criteria": {
+    "1": {"value": "0/10 AI", "held": true},
+    "2": {"value": "gap 0.201", "held": false},
+    "3": {"value": "3/3 labels, 6/6 bounds", "held": true},
+    "4": {"value": "5/5 appeals, 3/3 errors", "held": true},
+    "5": {"value": "8/8 clean, 0 decisions logged", "held": true}
+  },
+  "run_eval_results_file": "results/run_2026-11-08_1440_unit9_before_t1.md",
+  "audit_lines_added": 62,
+  "audit_lines_wrong_shape": [],
+  "unit_tests": ["Ran 33 tests in 2.515s", "", "OK"],
+  "request_log_lines_added": 88,
+  "trial": 1
+}
+```
+
+Criterion 2's `"held": false` is the Unit 8 miss carried over unchanged. U9-5
+asks for that gap to stay exactly 0.201, and it did.
+
+---
+
+## Unit 9: Diagnosis
+
+The service has the same five stages as Unit 8 (the route, signal one, signal
+two, the combining rule, the label mapping), plus what's new in Unit 9: the
+gunicorn worker and the request log around them. The request log puts a
+number on the route by itself. Refused submissions that never reach the
+model take 0.2 to 0.4 ms, so the route, the rate limiter and the logging cost almost
+nothing, and any slow request is slow somewhere inside the scoring.
+
+To find where, I timed the two signals separately in one process
+(`results/unit9_diagnostic_2026-11-08.md`, section 1):
+
+```
+load 3529 ms
+call 1: model_signal 3742.8 ms, style_signal 0.61 ms
+call 2: model_signal 246.8 ms, style_signal 0.23 ms
+call 3: model_signal 240.8 ms, style_signal 0.23 ms
+```
+
+**U9-4, MISSED (2541 to 2579 ms against 1.0 s, all three trials). Stage:
+signal one, `detector.model_signal`, on the first request a worker gets.**
+`detector._load()` is lazy. Nothing touches the model until a request needs it,
+and gunicorn starts the worker without asking it to. So gunicorn answers
+`/health` 0.14 s after launch with `"ok": true` and `"detector_loaded": false`,
+and the first `/submit` pays for importing torch, loading the tokenizer and
+weights, and then torch's first forward pass, which is slow on its own (3.7 s
+in the in-process timing, on top of a 3.5 s load). All three log lines say
+`"model_loaded": false`. The request log also showed a side effect I hadn't
+expected: a 2-character text that ends up refused (the 422 above) took
+2747.6 ms, because the "too short" check is inside `detector.perplexity`,
+after the model loads. So on a cold server even a rejection is slow.
+
+**U9-3, MISSED (trial 1 only: mean 384.0 ms, max 858.5 ms). Stage: signal
+one again, not the route or the logging.** Two separate things:
+
+1. **The first counted request is the slowest one in every trial**: 858.5,
+   409.5 and 262.8 ms, and 373 ms in the Milestone 3 measurement. Each trial's
+   server had scored exactly one passage (the uncounted warm-up) before it.
+   So the one-time cost in the forward pass isn't always gone after one call.
+   The in-process timing above had a fast second call, so this doesn't happen
+   every time.
+2. **Trial 1 also has two spikes in the middle, 537.1 and 586.2 ms at runs 6
+   and 7**, on exactly the same input as the 242 to 305 ms runs around them.
+   No code path explains that. The client-minus-log gap stayed at 10.7 ms or
+   less, so the time really was spent inside the request, not lost between
+   client and server. My best explanation is the laptop. It has 8 GB of RAM,
+   the worker alone is 1.1 GB, and `vm_stat` showed over a million pages in
+   the memory compressor. But the request log only records total duration, so
+   it can't show which part of the request stalled. That is a real limit of
+   what I built.
+
+The timing accuracy part of U9-3 held in every trial (largest gap 10.7 ms
+against 15 ms), so the miss is about the service being slow, not about the
+log being wrong.
+
+**U9-1, U9-2 and U9-5 held.** Every request left exactly one line, every
+refusal named the code the caller saw (including Flask's HTML 404 as
+`http_404` and the 429 as `rate_limited`), and Unit 8's numbers, audit
+shapes and 33 tests were the same under gunicorn.
+
+---
+
+## Unit 9: The Improvement
+
+**What I changed:** a `post_worker_init` hook in `gunicorn.conf.py` (commit
+`3da0ba3`). When gunicorn starts a worker, the hook loads gpt2 and scores one
+passage (the five formal calibration passages joined, cut to the 400-token
+window) before the worker accepts any request. gunicorn is already listening
+while this runs, so a request that arrives early waits in the queue instead
+of failing. If the model can't load, the hook logs a warning and the worker
+starts anyway. I checked that live with a model name that doesn't exist:
+gunicorn logged `Model warm-up failed ...`, `/health` answered, and `/submit`
+returned the same 503 `detector_unavailable` as before. Nothing in `app.py`,
+the signals, the scoring or the logs changed, and `python app.py` still loads
+lazily.
+
+**Why this one:** U9-4 missed in all three trials, by 2.5 times the target,
+and the diagnosis pointed at one exact mechanism: a model that loads lazily on
+the first user request. It also goes after the first half of U9-3's miss (the
+slow first passes). The diagnosis showed that loading the weights isn't
+enough, because the first forward pass is slow too. So the hook runs a real
+scoring pass, not just `detector.warm_up()`. I didn't choose per-stage timing
+in the request log, even though it would have helped the diagnosis, because
+it wouldn't fix either miss.
+
+---
+
+## Unit 9: Criteria Results, After
+
+`results/unit9_after_2026-11-08_1445.md`, code at `3da0ba3`, same harness,
+same three-trial procedure, request log in `logs/requests_unit9_after.jsonl`.
+
+| Criterion | Target | Trial 1 | Trial 2 | Trial 3 | Verdict |
+|---|---|---|---|---|---|
+| U9-1. One complete log line per request | 20 lines, 20/20 complete and matching, 0 text leaks | 20, 20/20, 0 | 20, 20/20, 0 | 20, 20/20, 0 | **MET** |
+| U9-2. Every refused request says why | 22/22 status and error match, 0 5xx, 429 logged | 22/22, 0, yes | 22/22, 0, yes | 22/22, 0, yes | **MET** |
+| U9-3. Warm requests cheap, logged time honest | mean ≤ 300 ms, max ≤ 500 ms, gap ≤ 15 ms | mean 255.2, max 304.5, gap 2.8 | mean 237.5, max 240.4, gap 2.6 | mean 244.0, max 278.9, gap 2.8 | **MET** |
+| U9-4. First request after a start isn't cold | first `/submit` ≤ 1.0 s | 443.5 ms | **3955.5 ms** | 392.2 ms | **MISSED** |
+| U9-5. Unit 8 behaviour unchanged | c1/3/4/5 held, gap 0.201, audit shapes, all tests | yes, 0.201, 62/62, 33 OK | yes, 0.201, 62/62, 33 OK | yes, 0.201, 62/62, 33 OK | **MET** |
+
+U9-4 trial 2's line. The model was already loaded, and the request still took
+3.9 s inside the server:
+
+```json
+{"timestamp": "2026-11-08T20:44:17.323+00:00", "method": "POST", "path": "/submit", "status": 200, "duration_ms": 3949.2, "in_bytes": 1825, "in_text_chars": 1762, "creator_id": "u9c4_after_t2", "out_bytes": 347, "content_id": "dfa5d180-6a42-4a61-9c86-02ec53d97ff9", "guess": "unsure", "confidence": 0.4236, "error": null, "exception": null, "model_loaded": true}
+```
+
+and trial 1's, for comparison:
+
+```json
+{"timestamp": "2026-11-08T20:44:13.024+00:00", "method": "POST", "path": "/submit", "status": 200, "duration_ms": 440.5, "in_bytes": 1825, "in_text_chars": 1762, "creator_id": "u9c4_after_t1", "out_bytes": 347, "content_id": "ffae70da-eb28-492d-997f-eaa48939b075", "guess": "unsure", "confidence": 0.4236, "error": null, "exception": null, "model_loaded": true}
+```
+
+U9-3's ten durations per trial, for comparison with the before run:
+
+```
+trial 1: [239.8, 241.8, 257.3, 267.7, 262.5, 304.5, 244.2, 246.4, 241.2, 246.3]
+trial 2: [240.4, 237.9, 235.0, 232.4, 239.5, 238.9, 239.4, 236.3, 236.5, 239.1]
+trial 3: [251.1, 246.1, 239.4, 234.2, 236.0, 236.5, 236.4, 238.3, 278.9, 242.8]
+```
+
+**Checking trial 2.** One slow trial out of three could be bad luck or could
+be the normal case, so I did six more fresh starts by hand with gunicorn's
+own output saved. These are not formal trials, and no code changed
+(`results/unit9_diagnostic_2026-11-08.md`, section 3):
+
+```
+start 1: first submit 0.226142s, warmed up in 6.3 s
+start 2: first submit 1.451313s, warmed up in 2.7 s
+start 3: first submit 0.232506s, warmed up in 2.6 s
+start 4: first submit 0.300767s, warmed up in 2.6 s
+start 5: first submit 0.348389s, warmed up in 2.6 s
+start 6: first submit 0.278082s, warmed up in 2.8 s
+```
+
+So 5 of 6 were fast and 1 was slow (1.45 s), even though every warm-up had
+finished. Counting the formal trials too, 7 of 9 fresh starts after the
+change met the 1.0 s target, against 0 of 3 in the before run (and 0 of 3 in
+the Milestone 3 cold starts). The warm-up removed the guaranteed cold start.
+It did not remove an occasional slow first request on a model that is already
+loaded. That is the same unexplained kind of slowness as the U9-3 trial 1
+spikes, and I can't break it down further with total-duration logging alone.
+
+---
+
+## Unit 9: Before and After
+
+| Criterion | Before (3 trials) | After (3 trials) | Before | After |
+|---|---|---|---|---|
+| U9-1. One line per request | 20/20 ×3 | 20/20 ×3 | MET | MET |
+| U9-2. Refusals say why | 22/22 ×3 | 22/22 ×3 | MET | MET |
+| U9-3. Warm cost, honest timing | mean 384.0 / 265.2 / 247.4 ms; max 858.5 / 409.5 / 271.5 | mean 255.2 / 237.5 / 244.0 ms; max 304.5 / 240.4 / 278.9 | MISSED | MET |
+| U9-4. First request not cold | 2579.0 / 2567.6 / 2540.8 ms | 443.5 / 3955.5 / 392.2 ms | MISSED | MISSED |
+| U9-5. Unit 8 unchanged | held ×3 | held ×3 | MET | MET |
+
+And the numbers that moved the other way:
+
+| | Before | After |
+|---|---|---|
+| Launch until `/health` answers | 0.14 / 0.14 / 0.14 s | 3.94 / 3.29 / 10.92 s |
+| `/health` while the model isn't ready | `"ok": true`, `detector_loaded: false` | doesn't answer until the model is ready, then `detector_loaded: true` |
+| Worker memory while idle | 36 MB until the first submission | about 1.1 GB from boot |
+
+**Did it help?** Partly, and less cleanly than the table suggests.
+
+- **U9-4 improved but is still MISSED.** The median first request went from
+  2567.6 ms to 443.5 ms, and 7 of 9 fresh starts now meet the target. But the
+  criterion asks for every trial, and trial 2 took 3955.5 ms, which is worse
+  than any before trial. That trial wasn't a cold model (`model_loaded:
+  true`), so it's a different problem from the one I fixed, and my logging
+  can't show what it was.
+- **U9-3 went from MISSED to MET, but I can't fully credit the change.** The
+  first counted request is no longer the slow one (239.8 to 251.1 ms, against
+  262.8 to 858.5 before), which fits the warm-up giving the model an extra
+  pass first. But most of the before miss came from trial 1's mid-run spikes,
+  which the warm-up does nothing about. The after run simply didn't have any.
+  With three trials I can't tell whether that's the change or luck.
+- **U9-1, U9-2 and U9-5 are unchanged**, as they should be, since the change
+  is only in gunicorn's startup.
+
+**What it cost.** The start-up wait didn't go away, it moved. gunicorn now
+takes 3.3 to 10.9 s before it answers anything, where it used to answer in
+0.14 s. Someone who sends a request during that window waits about as long as
+the first user used to. The difference is that the wait now happens at
+start-up, which a person restarting the service can see in gunicorn's log, and
+`/health` no longer says "ok" when the service can't score. The worker also
+holds about 1.1 GB from the moment it boots, even if nobody ever submits. A
+restart is slower, and the `python app.py` development path still has the
+old cold start.
 
 ---
 
